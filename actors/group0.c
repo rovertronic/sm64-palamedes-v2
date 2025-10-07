@@ -42,3 +42,5 @@
 #include "coin3D/model.inc.c"
 #include "coin3DB/model.inc.c"
 #include "coin3Dhi/model.inc.c"
+#include "noteblock/collision.inc.c"
+#include "noteblock/model.inc.c"

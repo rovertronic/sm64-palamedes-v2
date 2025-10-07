@@ -20,3 +20,4 @@
 
 #include "testcube/geo.inc.c"
 #include "placeholderNPC/geo.inc.c"
+#include "noteblock/geo.inc.c"
