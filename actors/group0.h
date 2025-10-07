@@ -353,4 +353,8 @@ extern const Gfx white_particle_small_unused_dl[];
 
 #include "coin3Dhi/header.h"
 
+#include "starswitch/collision_header.h"
+#include "starswitch/geo_header.h"
+#include "starglass/collision_header.h"
+#include "starglass/geo_header.h"
 #endif

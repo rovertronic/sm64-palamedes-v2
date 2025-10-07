@@ -42,3 +42,7 @@
 #include "coin3D/model.inc.c"
 #include "coin3DB/model.inc.c"
 #include "coin3Dhi/model.inc.c"
+#include "starswitch/collision.inc.c"
+#include "starswitch/model.inc.c"
+#include "starglass/collision.inc.c"
+#include "starglass/model.inc.c"

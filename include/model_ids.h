@@ -575,6 +575,8 @@
 enum {
     MODEL_TEST_CUBE = 0xFF,
     /* [Start] Palamedes V2 More Objects Patch */
+    MODEL_STAR_SWITCH,
+    MODEL_STAR_GLASS,
     /* [End] Palamedes V2 More Objects Patch */
     MODEL_PLACEHOLDER_NPC,
 };
