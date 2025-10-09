@@ -108,7 +108,7 @@ struct DemoInput gRecordedDemoInput = { 0 };
 
 // Thread Variables
 u8 sSingleThreadOtherFrame = FALSE;
-u8 sSingleThreaded = TRUE;
+u8 sSingleThreaded = FALSE;
 u8 sFrameCap60 = TRUE;
 u8 sVideoThreadStarted = FALSE;
 
@@ -904,6 +904,8 @@ void thread5_game_loop(UNUSED void *arg) {
             }
         } else {
             sSingleThreadOtherFrame = TRUE;
+
+            frameLerp_update_pos_cache();
             osRecvMesg(&gGameVblankQueue, &gMainReceivedMesg, OS_MESG_BLOCK);
             osRecvMesg(&gGameVblankQueue, &gMainReceivedMesg, OS_MESG_BLOCK);
         }
@@ -922,14 +924,13 @@ void thread10_graphics_loop(UNUSED void *arg) {
     while (gResetTimer == 0) {
         u32 deltaTime = osGetCount() - prevTime;
         prevTime = osGetCount();
+        gFrameLerpDeltaTime = (f32)deltaTime/(f32)OS_USEC_TO_CYCLES(33333);
 
         if (deltaTime < OS_USEC_TO_CYCLES(33333)) { // > 30 fps
             if (gGlobalTimer == lastRenderedFrame + 1) {
                 gFrameLerpRenderFrame = FRAMELERP_NORMAL;
-                gFrameLerpDeltaTime = 1.0f;
             } else {
                 gFrameLerpRenderFrame = FRAMELERP_BETWEEN;
-                gFrameLerpDeltaTime = 0.5f;
             }
         } else if (deltaTime > OS_USEC_TO_CYCLES(66666)) { // < 15fps
             if (gGlobalTimer == lastRenderedFrame + 1) {
@@ -937,10 +938,8 @@ void thread10_graphics_loop(UNUSED void *arg) {
             } else {
                 gFrameLerpRenderFrame = FRAMELERP_NORMAL;
             }
-            gFrameLerpDeltaTime = 1.0f;
         } else {
             gFrameLerpRenderFrame = FRAMELERP_NORMAL;
-            gFrameLerpDeltaTime = 1.0f;
         }
         lastRenderedFrame = gGlobalTimer;
 

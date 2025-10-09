@@ -10,13 +10,18 @@ EventData subEventTestOption1[] = {
     E_END_BRANCH(),
 };
 
+Vec3f tst1 = {0,0,0};
+Vec3f tst2 = {1,0,0};
+
 EventData subEventTestOption2[] = {
+    E_CAMERA_TO_V3PTR(tst1,tst2),
     E_DIALOG(TEXT_TESTCHOICE_2),
     E_END_BRANCH(),
 };
 
 EventData eventTestNPC[] = {
     E_DIALOG(TEXT_TEST_2),
+    E_WAIT(60),
     E_DIALOG(TEXT_TEST_3),
     E_DIALOG_CHOICE(TEXT_TESTCHOICE_1,subEventTestOption1),
     E_DIALOG_CHOICE(TEXT_TESTCHOICE_2,subEventTestOption2),

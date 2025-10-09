@@ -18,4 +18,8 @@ f32 * frameLerpRot(Quat rot, Quat rotValue);
 f32 frameLerpFloat(f32 f, f32 lerpValue);
 s16 frameLerpShort(s16 v, s16 lerpValue);
 
+void frameLerp_cache_pos(f32 * realPosPtr, f32 * cachePosPtr);
+void frameLerp_update_pos_cache(void);
+
+
 #endif

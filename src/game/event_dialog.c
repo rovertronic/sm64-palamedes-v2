@@ -18,6 +18,7 @@ f32 * sEventCameraTargetPosPointer;
 f32 * sEventCameraTargetFocPointer;
 f32 sEventCameraTransition;
 Bool8 sEventCameraTransitionDone = FALSE;
+s16 sEventTimer = 0;
 
 struct CutsceneSplinePoint * sEventCameraSpline[2];
 s16 sEventCameraSplineSegment[2];
@@ -92,6 +93,22 @@ u8 stickyNoteColors[4][3] = {
 };
 
 // Commands
+void event_wait(int callContext) {
+    switch(callContext) {
+        case EVENT_CALL_CONTEXT_EXECUTE:
+            sEventTimer = 0;
+            sEventHalt = TRUE;
+            break;
+        case EVENT_CALL_CONTEXT_HALTED:
+            sEventTimer++;
+            if (sEventTimer >= event_arg_int(0)) {
+                sEventHalt = FALSE;
+                gEventHead+=2;
+            }
+            break;
+    }
+}
+
 void event_set_dialog(int callContext) {
     switch(callContext) {
         case EVENT_CALL_CONTEXT_EXECUTE:
@@ -164,6 +181,12 @@ void event_follow_spline(UNUSED int callContext) {
 
     sEventCameraSpline[0] = event_arg_spline(0);
     sEventCameraSpline[1] = event_arg_spline(1);
+
+    gEventHead+=3;
+}
+
+void event_v3ptr_camera_move(UNUSED int callContext) {
+    event_camera_set(event_arg_vec3f(0),event_arg_vec3f(1));
 
     gEventHead+=3;
 }
