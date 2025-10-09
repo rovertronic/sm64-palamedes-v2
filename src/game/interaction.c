@@ -853,7 +853,7 @@ u32 interact_star_or_key(struct MarioState *m, UNUSED u32 interactType, struct O
 
         if (obj_has_behavior(obj->parentObj,bhvStarSwitchStar)) {
             if (obj->parentObj->oAction == 2) {
-                obj->parentObj->oAction = 4;
+                obj->parentObj->oAction = 5;
             }
         }
 

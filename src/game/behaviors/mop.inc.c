@@ -28,12 +28,16 @@ void bhv_star_switch(void) {
                 vec3f_copy(sStarSwitchCameraPos,&myStarGlass->oPosVec);
                 sStarSwitchCameraPos[0] += 400.0f;
                 sStarSwitchCameraPos[1] += 150.0f;
+
                 event_start(eventStarSwitch);
+                o->activeFlags |= ACTIVE_FLAG_INITIATED_TIME_STOP;
+                myStarGlass->activeFlags |= ACTIVE_FLAG_INITIATED_TIME_STOP;
             }
             break;
         case 1:
             if (o->oPosY > o->oHomeY - 20.0f) {
                 o->oPosY-=2.0f;
+                gMarioObject->header.gfx.pos[1] -= 2.0f;
             }
             if (o->oTimer == 20) {
                 myStarGlass->oAction = 1;
@@ -43,15 +47,18 @@ void bhv_star_switch(void) {
             }
             break;
         case 2:
-            if (o->oTimer >= 60) {
-                event_start(eventStarSwitchEnd);
+            if (o->oTimer >= o->oBehParams2ndByte*30) {
                 o->oAction++;
+                myStarGlass->oAction=3;
             }
             break;
         case 3:
+            if (o->oTimer == 0) {
+                event_start(eventStarSwitchEnd);
+            }
             if (o->oTimer >= 30) {
                 o->oPosY = o->oHomeY;
-                myStarGlass->oAction=3;
+                myStarGlass->oAction=4;
                 o->oAction++;
             }
             break;
@@ -67,6 +74,7 @@ void bhv_star_switch_star(void) {
     switch(o->oAction) {
         case 1:
             o->prevObj = spawn_object(o,MODEL_STAR,bhvStar);
+            o->prevObj->activeFlags |= ACTIVE_FLAG_INITIATED_TIME_STOP;
             o->header.gfx.sharedChild = gLoadedGraphNodes[MODEL_STAR_GLASS];
             o->oTimer = 0;
             o->oAction++;
@@ -76,18 +84,23 @@ void bhv_star_switch_star(void) {
                 obj_scale(o->prevObj,(f32)o->oTimer/10.f);
             }
             break;
-        case 3: // Delete & Reset
+        case 3: // Fail cutscene start
+            o->prevObj->activeFlags |= ACTIVE_FLAG_INITIATED_TIME_STOP;
+            break;
+        case 4: // Delete & Reset
             if (o->oTimer <= 10) {
                 obj_scale(o->prevObj,(f32)(10-o->oTimer)/10.f);
             }
             if (o->oTimer == 10) {
                 obj_mark_for_deletion(o->prevObj);
+            }
+            if (o->oTimer >= 20) {
                 o->header.gfx.sharedChild = gLoadedGraphNodes[MODEL_NONE];
                 o->oAction=0;
             }
              break;
-        case 4: //Shatter, victory
-            o->parentObj->oAction = 5;
+        case 5: //Shatter, victory
+            o->parentObj->oAction = 6;
             obj_mark_for_deletion(o);
             break;
     }
