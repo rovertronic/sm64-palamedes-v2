@@ -8,6 +8,7 @@
 #include "ui.h"
 #include "src/data/event.inc.c"
 #include "game_init.h"
+#include "object_helpers.h"
 
 
 Vec3f gEventCameraPos;
@@ -252,6 +253,7 @@ void event_end(UNUSED int callContext) {
                 if (gMarioState->action == ACT_READING_NPC_DIALOG) {
                     set_mario_action(gMarioState, ACT_IDLE, 0);
                 }
+                disable_time_stop_including_mario();
                 gEventHead = NULL;
             }
             break;
@@ -303,6 +305,8 @@ void event_start(EventData * event) {
         sEventStackIndex = 0;
 
         sEventDialogOptionCount = 0;
+
+        enable_time_stop_including_mario();
     }
 }
 
