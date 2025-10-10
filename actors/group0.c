@@ -46,3 +46,4 @@
 #include "starswitch/model.inc.c"
 #include "starglass/collision.inc.c"
 #include "starglass/model.inc.c"
+#include "starglassshard/model.inc.c"

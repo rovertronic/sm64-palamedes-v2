@@ -6105,6 +6105,14 @@ const BehaviorScript bhvStarSwitchStar[] = {
         CALL_NATIVE(bhv_star_switch_star),
     END_LOOP(),
 };
+extern void bhv_star_switch_star_shard(void);
+const BehaviorScript bhvStarSwitchShard[] = {
+    BEGIN(OBJ_LIST_UNIMPORTANT),
+    OR_INT(oFlags, OBJ_FLAG_UPDATE_GFX_POS_AND_ANGLE),
+    BEGIN_LOOP(),
+        CALL_NATIVE(bhv_star_switch_star_shard),
+    END_LOOP(),
+};
 /* [End] Palamedes V2 More Objects Patch */
 
 const BehaviorScript bhvNPC[] = {

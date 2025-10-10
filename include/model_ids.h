@@ -577,6 +577,7 @@ enum {
     /* [Start] Palamedes V2 More Objects Patch */
     MODEL_STAR_SWITCH,
     MODEL_STAR_GLASS,
+    MODEL_STAR_GLASS_SHARD,
     /* [End] Palamedes V2 More Objects Patch */
     MODEL_PLACEHOLDER_NPC,
 };

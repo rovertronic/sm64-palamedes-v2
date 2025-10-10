@@ -22,3 +22,4 @@
 #include "placeholderNPC/geo.inc.c"
 #include "starswitch/geo.inc.c"
 #include "starglass/geo.inc.c"
+#include "starglassshard/geo.inc.c"
