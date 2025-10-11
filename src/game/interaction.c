@@ -851,6 +851,12 @@ u32 interact_star_or_key(struct MarioState *m, UNUSED u32 interactType, struct O
             return set_mario_action(m, ACT_JUMBO_STAR_CUTSCENE, 0);
         }
 
+        if (obj_has_behavior(obj->parentObj,bhvStarSwitchStar)) {
+            if (obj->parentObj->oAction == 2) {
+                obj->parentObj->oAction = 5;
+            }
+        }
+
         return set_mario_action(m, starGrabAction, noExit + 2 * grandStar);
     }
 

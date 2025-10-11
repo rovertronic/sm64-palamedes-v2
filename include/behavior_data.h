@@ -543,6 +543,9 @@ extern const BehaviorScript bhvUnusedFakeStar[];
 
 /* [Start] Palamedes V2 More Objects Patch */
 extern const BehaviorScript bhvNoteblock[];
+extern const BehaviorScript bhvStarSwitch[];
+extern const BehaviorScript bhvStarSwitchStar[];
+extern const BehaviorScript bhvStarSwitchShard[];
 /* [End] Palamedes V2 More Objects Patch */
 
 extern const BehaviorScript bhvNPC[];

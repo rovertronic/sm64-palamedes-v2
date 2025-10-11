@@ -356,4 +356,9 @@ extern const Gfx white_particle_small_unused_dl[];
 #include "noteblock/geo_header.h"
 #include "noteblock/collision_header.h"
 
+#include "starswitch/collision_header.h"
+#include "starswitch/geo_header.h"
+#include "starglass/collision_header.h"
+#include "starglass/geo_header.h"
+#include "starglassshard/geo_header.h"
 #endif

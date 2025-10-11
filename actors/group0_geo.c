@@ -21,3 +21,6 @@
 #include "testcube/geo.inc.c"
 #include "placeholderNPC/geo.inc.c"
 #include "noteblock/geo.inc.c"
+#include "starswitch/geo.inc.c"
+#include "starglass/geo.inc.c"
+#include "starglassshard/geo.inc.c"

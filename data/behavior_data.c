@@ -6097,6 +6097,34 @@ const BehaviorScript bhvNoteblock[] = {
         CALL_NATIVE(load_object_collision_model),
     END_LOOP(),
 };
+extern void bhv_star_switch(void);
+const BehaviorScript bhvStarSwitch[] = {
+    BEGIN(OBJ_LIST_SURFACE),
+    OR_INT(oFlags, OBJ_FLAG_UPDATE_GFX_POS_AND_ANGLE),
+    SET_HOME(),
+    LOAD_COLLISION_DATA(starswitch_collision),
+    BEGIN_LOOP(),
+        CALL_NATIVE(bhv_star_switch),
+        CALL_NATIVE(load_object_collision_model),
+    END_LOOP(),
+};
+extern void bhv_star_switch_star(void);
+const BehaviorScript bhvStarSwitchStar[] = {
+    BEGIN(OBJ_LIST_LEVEL),
+    OR_INT(oFlags, OBJ_FLAG_UPDATE_GFX_POS_AND_ANGLE),
+    SET_HOME(),
+    BEGIN_LOOP(),
+        CALL_NATIVE(bhv_star_switch_star),
+    END_LOOP(),
+};
+extern void bhv_star_switch_star_shard(void);
+const BehaviorScript bhvStarSwitchShard[] = {
+    BEGIN(OBJ_LIST_UNIMPORTANT),
+    OR_INT(oFlags, OBJ_FLAG_UPDATE_GFX_POS_AND_ANGLE),
+    BEGIN_LOOP(),
+        CALL_NATIVE(bhv_star_switch_star_shard),
+    END_LOOP(),
+};
 /* [End] Palamedes V2 More Objects Patch */
 
 const BehaviorScript bhvNPC[] = {

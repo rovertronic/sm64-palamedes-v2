@@ -44,3 +44,8 @@
 #include "coin3Dhi/model.inc.c"
 #include "noteblock/collision.inc.c"
 #include "noteblock/model.inc.c"
+#include "starswitch/collision.inc.c"
+#include "starswitch/model.inc.c"
+#include "starglass/collision.inc.c"
+#include "starglass/model.inc.c"
+#include "starglassshard/model.inc.c"
