@@ -575,6 +575,10 @@
 enum {
     MODEL_TEST_CUBE = 0xFF,
     /* [Start] Palamedes V2 More Objects Patch */
+    MODEL_ONOFF_SWITCH,
+    MODEL_ONOFF_SOLID,
+    MODEL_ONOFF_HOLLOW,
+    MODEL_ONOFF_EXCLAMATION,
     /* [End] Palamedes V2 More Objects Patch */
     MODEL_PLACEHOLDER_NPC,
 };

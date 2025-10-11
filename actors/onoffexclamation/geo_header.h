@@ -1,0 +1,14 @@
+extern const GeoLayout onoffexclamation_geo_opt_1[];
+extern const GeoLayout onoffexclamation_geo[];
+extern u8 onoffexclamation_bluebox2_ci8[];
+extern u8 onoffexclamation_bluebox2_pal_rgba16[];
+extern u8 onoffexclamation_redbox2_ci8[];
+extern u8 onoffexclamation_redbox2_pal_rgba16[];
+extern Vtx onoffexclamation_000_displaylist_mesh_layer_1_vtx_0[87];
+extern Gfx onoffexclamation_000_displaylist_mesh_layer_1_tri_0[];
+extern Gfx mat_onoffexclamation_excla_blue[];
+extern Gfx mat_revert_onoffexclamation_excla_blue[];
+extern Gfx mat_onoffexclamation_excla_red[];
+extern Gfx mat_revert_onoffexclamation_excla_red[];
+extern Gfx onoffexclamation_000_displaylist_mesh_layer_1[];
+extern Gfx onoffexclamation_000_displaylist_mesh_layer_1_opt_1_with_layer_1_revert[];

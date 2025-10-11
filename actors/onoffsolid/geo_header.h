@@ -1,0 +1,14 @@
+extern const GeoLayout onoffsolid_geo_opt_1[];
+extern const GeoLayout onoffsolid_geo[];
+extern u8 onoffsolid_redbox_ci8[];
+extern u8 onoffsolid_redbox_pal_rgba16[];
+extern u8 onoffsolid_bluebox_ci8[];
+extern u8 onoffsolid_bluebox_pal_rgba16[];
+extern Vtx onoffsolid_000_displaylist_mesh_layer_1_vtx_0[30];
+extern Gfx onoffsolid_000_displaylist_mesh_layer_1_tri_0[];
+extern Gfx mat_onoffsolid_redblock[];
+extern Gfx mat_revert_onoffsolid_redblock[];
+extern Gfx mat_onoffsolid_blueblock[];
+extern Gfx mat_revert_onoffsolid_blueblock[];
+extern Gfx onoffsolid_000_displaylist_mesh_layer_1[];
+extern Gfx onoffsolid_000_displaylist_mesh_layer_1_opt_1_with_layer_1_revert[];

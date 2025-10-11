@@ -107,6 +107,10 @@ const LevelScript level_main_scripts_entry[] = {
     LOAD_MODEL_FROM_GEO(MODEL_CARTOON_STAR,            cartoon_star_geo),
     LOAD_MODEL_FROM_GEO(MODEL_TEST_CUBE,               testcube_geo),
     LOAD_MODEL_FROM_GEO(MODEL_PLACEHOLDER_NPC,         placeholderNPC_geo),
+    LOAD_MODEL_FROM_GEO(MODEL_ONOFF_SWITCH,            onoffswitch_geo),
+    LOAD_MODEL_FROM_GEO(MODEL_ONOFF_SOLID,             onoffsolid_geo),
+    LOAD_MODEL_FROM_GEO(MODEL_ONOFF_HOLLOW,            onoffhollow_geo),
+    LOAD_MODEL_FROM_GEO(MODEL_ONOFF_EXCLAMATION,       onoffexclamation_geo),
 #ifdef IA8_30FPS_COINS
     LOAD_MODEL_FROM_GEO(MODEL_SILVER_COIN,             silver_coin_geo),
     LOAD_MODEL_FROM_GEO(MODEL_SILVER_COIN_NO_SHADOW,   silver_coin_no_shadow_geo),

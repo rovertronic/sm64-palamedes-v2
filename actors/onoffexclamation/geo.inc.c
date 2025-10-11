@@ -1,0 +1,23 @@
+#include "src/game/envfx_snow.h"
+
+const GeoLayout onoffexclamation_geo_opt_1[] = {
+	GEO_NODE_START(),
+	GEO_OPEN_NODE(),
+		GEO_DISPLAY_LIST(LAYER_OPAQUE, onoffexclamation_000_displaylist_mesh_layer_1_opt_1_with_layer_1_revert),
+	GEO_CLOSE_NODE(),
+	GEO_RETURN(),
+};
+const GeoLayout onoffexclamation_geo[] = {
+	GEO_NODE_START(),
+	GEO_OPEN_NODE(),
+		GEO_SWITCH_CASE(2, geo_switch_anim_state),
+		GEO_OPEN_NODE(),
+			GEO_NODE_START(),
+			GEO_OPEN_NODE(),
+				GEO_DISPLAY_LIST(LAYER_OPAQUE, onoffexclamation_000_displaylist_mesh_layer_1),
+			GEO_CLOSE_NODE(),
+			GEO_BRANCH(1, onoffexclamation_geo_opt_1),
+		GEO_CLOSE_NODE(),
+	GEO_CLOSE_NODE(),
+	GEO_END(),
+};
