@@ -6085,6 +6085,34 @@ const BehaviorScript bhvIntroScene[] = {
 };
 
 /* [Start] Palamedes V2 More Objects Patch */
+extern void bhv_onoffswitch(void);
+const BehaviorScript bhvOnOffButton[] = {
+    BEGIN(OBJ_LIST_SURFACE),
+    OR_INT(oFlags, (OBJ_FLAG_SET_FACE_YAW_TO_MOVE_YAW | OBJ_FLAG_UPDATE_GFX_POS_AND_ANGLE)),
+    LOAD_COLLISION_DATA(onoffcol_collision),
+    SET_FLOAT(oDrawingDistance, 4000),
+    SET_FLOAT(oCollisionDistance, 500),
+    SET_HOME(),
+    BEGIN_LOOP(),
+        CALL_NATIVE(bhv_onoffswitch),
+        CALL_NATIVE(load_object_collision_model),
+    END_LOOP(),
+};
+
+extern void bhv_onoffblock(void);
+const BehaviorScript bhvOnOffBlock[] = {
+    BEGIN(OBJ_LIST_SURFACE),
+    OR_INT(oFlags, (OBJ_FLAG_SET_FACE_YAW_TO_MOVE_YAW | OBJ_FLAG_UPDATE_GFX_POS_AND_ANGLE)),
+    LOAD_COLLISION_DATA(onoffsolid_collision),
+    SET_FLOAT(oDrawingDistance, 4000),
+    SET_FLOAT(oCollisionDistance, 500),
+    SET_HOME(),
+    SCALE(/*Unused*/ 0, /*Field*/ 117),
+    ADD_FLOAT(oPosY, 150),
+    BEGIN_LOOP(),
+        CALL_NATIVE(bhv_onoffblock),
+    END_LOOP(),
+};
 /* [End] Palamedes V2 More Objects Patch */
 
 const BehaviorScript bhvNPC[] = {
