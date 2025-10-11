@@ -12,3 +12,4 @@ void bhv_noteblock(void) {
         gMarioStates[0].vel[1] = 95.0f + (o->oBehParams2ndByte*10.0f);
     }
 }
+/* End Noteblock */
