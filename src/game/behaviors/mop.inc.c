@@ -147,3 +147,4 @@ void bhv_star_switch_star_shard(void) {
         obj_mark_for_deletion(o);
     }
 }
+/* End Star Switch from SM64 DS*/
