@@ -361,4 +361,10 @@ extern const Gfx white_particle_small_unused_dl[];
 #include "starglass/collision_header.h"
 #include "starglass/geo_header.h"
 #include "starglassshard/geo_header.h"
+#include "onoffcol/collision_header.h"
+#include "onoffswitch/geo_header.h"
+#include "onoffsolid/collision_header.h"
+#include "onoffsolid/geo_header.h"
+#include "onoffhollow/geo_header.h"
+#include "onoffexclamation/geo_header.h"
 #endif

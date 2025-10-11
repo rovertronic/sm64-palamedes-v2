@@ -24,3 +24,7 @@
 #include "starswitch/geo.inc.c"
 #include "starglass/geo.inc.c"
 #include "starglassshard/geo.inc.c"
+#include "onoffswitch/geo.inc.c"
+#include "onoffsolid/geo.inc.c"
+#include "onoffhollow/geo.inc.c"
+#include "onoffexclamation/geo.inc.c"
