@@ -18,6 +18,7 @@ EventData eventStarSwitchEnd[] = {
 void bhv_star_switch(void) {
     struct Object * myStarGlass = cur_obj_nearest_object_with_behavior(bhvStarSwitchStar);
     if (myStarGlass == NULL) {return;}
+    myStarGlass->parentObj = o;
 
     switch(o->oAction) {
         case 0:
@@ -117,7 +118,7 @@ void bhv_star_switch_star(void) {
             for (int i = 0; i < 15; i++) {
                 spawn_object(o,MODEL_STAR_GLASS_SHARD,bhvStarSwitchShard);
             }
-            o->parentObj->oAction = 6;
+            o->parentObj->oAction = 5;
             obj_mark_for_deletion(o);
             break;
     }
