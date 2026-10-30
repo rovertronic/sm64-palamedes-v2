@@ -34,6 +34,9 @@
 #include "game/bridge.h"
 #include "game/coin.h"
 #include "game/level_region.h"
+#include "game/event_dialog.h"
+#include "game/main.h"
+#include <PR/os_internal_reg.h>
 
 #include "config.h"
 
@@ -326,6 +329,13 @@ static void level_cmd_change_area_skybox(void) {
 }
 
 static void level_cmd_init_level(void) {
+    if (gLevelChangeSpinlockState == 1) {
+        gLevelChangeSpinlockState = 2;
+        while(gLevelChangeSpinlockState == 2){
+            osRecvMesg(&gGameVblankQueue, &gMainReceivedMesg, OS_MESG_BLOCK);
+        }
+    }
+
     init_graph_node_start(NULL, (struct GraphNodeStart *) &gObjParentGraphNode);
     clear_objects();
     clear_areas();
@@ -367,6 +377,13 @@ void unmap_tlbs(void) {
 }
 
 static void level_cmd_clear_level(void) {
+    if (gLevelChangeSpinlockState == 1) {
+        gLevelChangeSpinlockState = 2;
+        while(gLevelChangeSpinlockState == 2){
+            osRecvMesg(&gGameVblankQueue, &gMainReceivedMesg, OS_MESG_BLOCK);
+        }
+    }
+
     clear_objects();
     clear_area_graph_nodes();
     clear_areas();
@@ -401,6 +418,10 @@ static void level_cmd_free_level_pool(void) {
         }
     }
     main_pool_push_state();
+
+    if (gLevelChangeSpinlockState == 3) {
+        gLevelChangeSpinlockState = 1;
+    }
 
     sCurrentCmd = CMD_NEXT;
 }
@@ -928,6 +949,16 @@ static void level_cmd_bridge_end(void) {
     sCurrentCmd = CMD_NEXT;
 }
 
+static void level_cmd_region_object(void) {
+    Vec3f pos;
+    pos[0] = CMD_GET(f32,4*1);
+    pos[1] = CMD_GET(f32,4*2);
+    pos[2] = CMD_GET(f32,4*3);
+
+    region_init_object(pos,CMD_GET(s16,2),CMD_GET(u32,4*4),CMD_GET(u32,4*5),CMD_GET(void *,4*6),CMD_GET(void *,4*7));
+    sCurrentCmd = CMD_NEXT;
+}
+
 static void (*LevelScriptJumpTable[])(void) = {
     /*LEVEL_CMD_LOAD_AND_EXECUTE            */ level_cmd_load_and_execute,
     /*LEVEL_CMD_EXIT_AND_EXECUTE            */ level_cmd_exit_and_execute,
@@ -995,7 +1026,8 @@ static void (*LevelScriptJumpTable[])(void) = {
     /*LEVEL_CMD_SET_ECHO                    */ level_cmd_set_echo,
     /*LEVEL_CMD_CUBIC_VOLUME*/                 level_cmd_cubic_volume,
     /*LEVEL_CMD_BRIDGE_START*/                 level_cmd_bridge_start,
-    /*LEVEL_CMD_BRIDGE_END*/                   level_cmd_bridge_end
+    /*LEVEL_CMD_BRIDGE_END*/                   level_cmd_bridge_end,
+    /*LEVEL_CMD_REGION_OBJECT*/                level_cmd_region_object
 };
 
 struct LevelCommand *level_script_execute(struct LevelCommand *cmd) {

@@ -21,7 +21,7 @@
      ((zPos) <= -LEVEL_BOUNDARY_MAX) ||     \
      ((zPos) >=  LEVEL_BOUNDARY_MAX))
 
-#define get_surface_height_at_location(xPos, zPos, surf) (-(((xPos) * (surf)->normal.x) + ((zPos) * (surf)->normal.z) + (surf)->originOffset) / (surf)->normal.y)
+f32 get_surface_height_at_location(s32 x, s32 z, struct Surface *surf);
 
 #define SURFACE_YAW(s) (atan2s(((s)->normal.z), ((s)->normal.x)))
 
@@ -51,6 +51,8 @@ f32 find_ceil(f32 posX, f32 posY, f32 posZ, struct Surface **pceil);
 ALWAYS_INLINE f32 find_mario_ceil(Vec3f pos, f32 height, struct Surface **ceil) {
     return find_ceil(pos[0], MAX(height, pos[1]) + 3.0f, pos[2], ceil);
 }
+
+void get_surface_normal_oo(f32 normal[4], struct Surface *surf);
 
 f32 find_floor_height(f32 x, f32 y, f32 z);
 f32 find_floor(f32 xPos, f32 yPos, f32 zPos, struct Surface **pfloor);

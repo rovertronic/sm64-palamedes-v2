@@ -49,7 +49,7 @@ f32 sDebugRamTrack;
 s32 is_anim_at_end(struct MarioState *m) {
     struct Object *marioObj = m->marioObj;
 
-    return (marioObj->header.gfx.animInfo.animFrame + 1) == marioObj->header.gfx.animInfo.curAnim->loopEnd;
+    return (marioObj->header.gfx.animInfo.animFrame + 1) == marioObj->header.gfx.animInfo.curAnimLogic->loopEnd;
 }
 
 /**
@@ -58,7 +58,7 @@ s32 is_anim_at_end(struct MarioState *m) {
 s32 is_anim_past_end(struct MarioState *m) {
     struct Object *marioObj = m->marioObj;
 
-    return marioObj->header.gfx.animInfo.animFrame >= (marioObj->header.gfx.animInfo.curAnim->loopEnd - 2);
+    return marioObj->header.gfx.animInfo.animFrame >= (marioObj->header.gfx.animInfo.curAnimLogic->loopEnd - 2);
 }
 
 /**
@@ -78,7 +78,7 @@ s16 set_mario_animation(struct MarioState *m, s32 targetAnimID) {
 
     if (marioObj->header.gfx.animInfo.animID != targetAnimID) {
         marioObj->header.gfx.animInfo.animID = targetAnimID;
-        marioObj->header.gfx.animInfo.curAnim = targetAnim;
+        marioObj->header.gfx.animInfo.curAnimLogic = targetAnim;
         marioObj->header.gfx.animInfo.animAccel = 0;
         marioObj->header.gfx.animInfo.animYTrans = m->animYTrans;
 
@@ -91,7 +91,6 @@ s16 set_mario_animation(struct MarioState *m, s32 targetAnimID) {
                 marioObj->header.gfx.animInfo.animFrame = targetAnim->startFrame - 1;
             }
         }
-        marioObj->header.gfx.animInfo.animFrameF = marioObj->header.gfx.animInfo.animFrame;
     }
 
     marioObj->header.gfx.animInfo.animAccelF = 1.0f;
@@ -116,7 +115,7 @@ s16 set_mario_anim_with_accel(struct MarioState *m, s32 targetAnimID, s32 accel)
 
     if (marioObj->header.gfx.animInfo.animID != targetAnimID) {
         marioObj->header.gfx.animInfo.animID = targetAnimID;
-        marioObj->header.gfx.animInfo.curAnim = targetAnim;
+        marioObj->header.gfx.animInfo.curAnimLogic = targetAnim;
         marioObj->header.gfx.animInfo.animYTrans = m->animYTrans;
 
         if (targetAnim->flags & ANIM_FLAG_NO_ACCEL) {
@@ -130,7 +129,6 @@ s16 set_mario_anim_with_accel(struct MarioState *m, s32 targetAnimID, s32 accel)
         }
 
         marioObj->header.gfx.animInfo.animFrame = (marioObj->header.gfx.animInfo.animFrameAccelAssist >> 0x10);
-        marioObj->header.gfx.animInfo.animFrameF = marioObj->header.gfx.animInfo.animFrame;
     }
 
     marioObj->header.gfx.animInfo.animAccel = accel;
@@ -143,7 +141,7 @@ s16 set_mario_anim_with_accel(struct MarioState *m, s32 targetAnimID, s32 accel)
  */
 void set_anim_to_frame(struct MarioState *m, s16 animFrame) {
     struct AnimInfo *animInfo = &m->marioObj->header.gfx.animInfo;
-    struct Animation *curAnim = animInfo->curAnim;
+    struct Animation *curAnim = animInfo->curAnimLogic;
 
     if (animInfo->animAccel) {
         if (curAnim->flags & ANIM_FLAG_FORWARD) {
@@ -165,7 +163,7 @@ s32 is_anim_past_frame(struct MarioState *m, s16 animFrame) {
     s32 isPastFrame;
     s32 acceleratedFrame = animFrame << 0x10;
     struct AnimInfo *animInfo = &m->marioObj->header.gfx.animInfo;
-    struct Animation *curAnim = animInfo->curAnim;
+    struct Animation *curAnim = animInfo->curAnimLogic;
 
     if (animInfo->animAccel) {
         if (curAnim->flags & ANIM_FLAG_FORWARD) {
@@ -195,7 +193,7 @@ s32 is_anim_past_frame(struct MarioState *m, s16 animFrame) {
 s16 find_mario_anim_flags_and_translation(struct Object *obj, s32 yaw, Vec3s translation) {
     f32 dx, dz;
 
-    struct Animation *curAnim = (void *) obj->header.gfx.animInfo.curAnim;
+    struct Animation *curAnim = (void *) obj->header.gfx.animInfo.curAnimLogic;
     s16 animFrame = geo_update_animation_frame(&obj->header.gfx.animInfo, NULL);
     u16 *animIndex = segmented_to_virtual((void *) curAnim->index);
     s16 *animValues = segmented_to_virtual((void *) curAnim->values);
@@ -1844,7 +1842,7 @@ s32 execute_mario_action(UNUSED struct Object *obj) {
         // Both of the wind handling portions play wind audio only in
         // non-Japanese releases.
         if (gMarioState->floor->type == SURFACE_HORIZONTAL_WIND) {
-            spawn_wind_particles(0, (gMarioState->floor->force << 8));
+            spawn_wind_particles(0, 0/*angle*/);
             play_sound(SOUND_ENV_WIND2, gMarioState->marioObj->header.gfx.cameraToObject);
         }
 

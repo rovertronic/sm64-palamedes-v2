@@ -38,10 +38,15 @@ struct NeoSaveFile {
 };
 
 struct NeoSaveData {
-    struct NeoSaveFile save[SAVE_FILE_COUNT];
+    struct NeoSaveFile file[SAVE_FILE_COUNT];
     u32 saveMagic;
 };
 
+void neo_save_collectible_obtain(u32 * flaglist, int id);
+u32 neo_save_collectible_collected(u32 * flaglist, int id);
+u32 neo_save_collectible_count(u32 * flaglist, int total);
+
 extern struct StarMission gStarMissionList[];
+extern struct NeoSaveFile * gCurrNeoSaveFile;
 
 #endif

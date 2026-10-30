@@ -26,6 +26,7 @@
 #include "day_night_cycle.h"
 #include "cubic_volume.h"
 #include "level_region.h"
+#include "ingame_menu.h"
 
 #include "config.h"
 #include "config/config_world.h"
@@ -585,9 +586,7 @@ void geo_process_camera(struct GraphNodeCamera *node) {
 
     gSPMatrix(gDisplayListHead++, VIRTUAL_TO_PHYSICAL(rollMtx), G_MTX_PROJECTION | G_MTX_MUL | G_MTX_NOPUSH);
 
-    frameLerp_cache_pos(node->pos,node->posCache);
-    frameLerp_cache_pos(node->focus,node->focusCache);
-    mtxf_lookat(gCameraTransform, frameLerpPos(node->posCache,node->posLerp), frameLerpPos(node->focusCache,node->focLerp), node->roll);
+    mtxf_lookat(gCameraTransform, frameLerpPos(node->posVideoCache,node->posLerp), frameLerpPos(node->focusVideoCache,node->focLerp), node->roll);
     vec3f_copy(gSkyboxCameraPos,node->posLerp);
     vec3f_copy(gSkyboxCameraFoc,node->focLerp);
 
@@ -641,13 +640,15 @@ void geo_process_camera(struct GraphNodeCamera *node) {
  * For the rest it acts as a normal display list node.
  */
 void geo_process_translation_rotation(struct GraphNodeTranslationRotation *node) {
-    Vec3f translation;
+    if (!gRegionDisableRender) {
+        Vec3f translation;
 
-    vec3s_to_vec3f(translation, node->translation);
-    mtxf_rotate_zxy_and_translate_and_mul(node->rotation, translation, gMatStack[gMatStackIndex + 1], gMatStack[gMatStackIndex]);
+        vec3s_to_vec3f(translation, node->translation);
+        mtxf_rotate_zxy_and_translate_and_mul(node->rotation, translation, gMatStack[gMatStackIndex + 1], gMatStack[gMatStackIndex]);
 
-    inc_mat_stack();
-    append_dl_and_return((struct GraphNodeDisplayList *)node);
+        inc_mat_stack();
+        append_dl_and_return((struct GraphNodeDisplayList *)node);
+    }
 }
 
 /**
@@ -656,13 +657,15 @@ void geo_process_translation_rotation(struct GraphNodeTranslationRotation *node)
  * For the rest it acts as a normal display list node.
  */
 void geo_process_translation(struct GraphNodeTranslation *node) {
-    Vec3f translation;
+    if (!gRegionDisableRender) {
+        Vec3f translation;
 
-    vec3s_to_vec3f(translation, node->translation);
-    mtxf_rotate_zxy_and_translate_and_mul(gVec3sZero, translation, gMatStack[gMatStackIndex + 1], gMatStack[gMatStackIndex]);
+        vec3s_to_vec3f(translation, node->translation);
+        mtxf_rotate_zxy_and_translate_and_mul(gVec3sZero, translation, gMatStack[gMatStackIndex + 1], gMatStack[gMatStackIndex]);
 
-    inc_mat_stack();
-    append_dl_and_return((struct GraphNodeDisplayList *)node);
+        inc_mat_stack();
+        append_dl_and_return((struct GraphNodeDisplayList *)node);
+    }
 }
 
 /**
@@ -730,9 +733,10 @@ void geo_process_billboard(struct GraphNodeBillboard *node) {
  * parent node. It processes its children if it has them.
  */
 void geo_process_display_list(struct GraphNodeDisplayList *node) {
-    append_dl_and_return((struct GraphNodeDisplayList *)node);
-
-    gMatStackIndex++;
+    if (!gRegionDisableRender) {
+        append_dl_and_return((struct GraphNodeDisplayList *)node);
+        gMatStackIndex++;
+    }
 }
 
 /**
@@ -793,7 +797,7 @@ void geo_process_background(struct GraphNodeBackground *node) {
 void retrieve_anim_quat(Quat dest, f32 frame) {
     s32 f = (s32)frame;
     f32 r = frame-(s32)f;
-
+    
     Vec3s euler_start;
     Vec3s euler_end;
 
@@ -907,26 +911,13 @@ void geo_process_animated_part(struct GraphNodeAnimatedPart *node) {
  * Initialize the animation-related global variables for the currently drawn
  * object's animation.
  */
-void geo_set_animation_globals(struct AnimInfo *node, s32 hasAnimation, struct Object * obj) {
+void geo_set_animation_globals(struct AnimInfo *node, s32 hasAnimation, UNUSED struct Object * obj) {
     struct Animation *anim = node->curAnim;
 
-    if (obj == gMarioState->marioObj) {
-        if (gMarioState->queueTargetAnim != NULL) {
-            struct Animation * targetAnim = gMarioState->queueTargetAnim;
-            s32 targetAnimID = gMarioState->queueTargetAnimID;
-            if (load_patchable_table(gMarioState->animList[ANIM_LIST_GFX], targetAnimID)) {
-                targetAnim->values = (void *) VIRTUAL_TO_PHYSICAL((u8 *) targetAnim + (uintptr_t) targetAnim->values);
-                targetAnim->index  = (void *) VIRTUAL_TO_PHYSICAL((u8 *) targetAnim + (uintptr_t) targetAnim->index);
-            }
-
-            gMarioState->queueTargetAnim = NULL;
-        }
-        anim = gMarioState->animList[ANIM_LIST_GFX]->bufTarget;
-    }
-
     if (hasAnimation) {
-        node->animFrame = geo_update_animation_frame(node, &node->animFrameAccelAssist);
-        node->animFrameF = geo_update_animation_frame_float(node);
+        if (gMenuMode != MENU_MODE_RENDER_PAUSE_SCREEN) {
+            node->animFrameF = geo_update_animation_frame_float(node);
+        }
     }
     node->animTimer = gAreaUpdateCounter;
     if (anim->flags & ANIM_FLAG_HOR_TRANS) {
@@ -1007,10 +998,10 @@ void geo_process_shadow(struct GraphNodeShadow *node) {
 
             f32 animScale = gCurrAnimTranslationMultiplier * objScale;
             Vec3f animOffset;
-            animOffset[0] = gCurrAnimData[retrieve_animation_index(gCurrAnimFrame, &gCurrAnimAttribute)] * animScale;
+            animOffset[0] = gCurrAnimData[retrieve_animation_index(gCurrAnimFrameF, &gCurrAnimAttribute)] * animScale;
             animOffset[1] = 0.0f;
             gCurrAnimAttribute += 2;
-            animOffset[2] = gCurrAnimData[retrieve_animation_index(gCurrAnimFrame, &gCurrAnimAttribute)] * animScale;
+            animOffset[2] = gCurrAnimData[retrieve_animation_index(gCurrAnimFrameF, &gCurrAnimAttribute)] * animScale;
             gCurrAnimAttribute -= 6;
 
             // simple matrix rotation so the shadow offset rotates along with the object
@@ -1164,21 +1155,18 @@ void visualise_object_hitbox(struct Object *node) {
  * Process an object node.
  */
 void geo_process_object(struct Object *node) {
-    // Do not render if not in current region and not in global region
-    if ((!(node->regionFlags & gRegionFlags))&&(node->regionFlags != 0)) {return;}
-
     if (node->header.gfx.areaIndex == gCurGraphNodeRoot->areaIndex) {
         s32 isInvisible = (node->header.gfx.node.flags & GRAPH_RENDER_INVISIBLE);
         // Maintain throw matrix pointer if the game is paused as it won't be updated.
 
-        frameLerpPos(node->header.gfx.pos,node->header.gfx.posLerp);
+        frameLerpPos(node->header.gfx.posVideoCache,node->header.gfx.posLerp);
         frameLerpPos(node->header.gfx.scale,node->header.gfx.scaleLerp);
 
         // If the throw matrix is null and the object is invisible, there is no need
         // to update billboarding, scale, rotation, etc. 
         // This still updates translation since it is needed for sound.
         if (isInvisible) {
-            mtxf_translate(gMatStack[gMatStackIndex + 1], node->header.gfx.pos);
+            mtxf_translate(gMatStack[gMatStackIndex + 1], node->header.gfx.posVideoCache);
         }
         else{
             if (node->header.gfx.node.flags & GRAPH_RENDER_BILLBOARD) {
@@ -1209,7 +1197,7 @@ void geo_process_object(struct Object *node) {
         }
 
         gMatStackIndex++;
-        linear_mtxf_mul_vec3f_and_translate(gCameraTransform, node->header.gfx.cameraToObject, node->header.gfx.pos);
+        linear_mtxf_mul_vec3f_and_translate(gCameraTransform, node->header.gfx.cameraToObject, node->header.gfx.posVideoCache);
 
         // FIXME: correct types
         if (node->header.gfx.animInfo.curAnim != NULL) {
@@ -1246,6 +1234,8 @@ void geo_process_object(struct Object *node) {
  * actual children are be processed. (in practice they are null though)
  */
 void geo_process_object_parent(struct GraphNodeObjectParent *node) {
+    gRegionDisableRender = FALSE;
+
     render_worldspace_visual_debug();
     day_night_restore_object_light();
 

@@ -25,6 +25,7 @@
 #include "rumble_init.h"
 #include "config.h"
 #include "coin.h"
+#include "neo_save.h"
 
 u8  sDelayInvincTimer;
 s16 sInvulnerable;
@@ -835,6 +836,7 @@ u32 interact_star_or_key(struct MarioState *m, UNUSED u32 interactType, struct O
         starIndex = (obj->oBehParams >> 24) & 0x1F;
 #endif
         save_file_collect_star_or_key(m->numCoins, starIndex);
+        neo_save_collectible_obtain(gCurrNeoSaveFile->stars, GET_BPARAM1(obj->oBehParams));
 
         m->numStars =
             save_file_get_total_star_count(gCurrSaveFileNum - 1, COURSE_MIN - 1, COURSE_MAX - 1);

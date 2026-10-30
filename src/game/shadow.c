@@ -193,7 +193,7 @@ void add_special_shadow_to_display_list(Gfx *displayListHead) {
  * Create a shadow at the absolute position given, with the given parameters.
  * Return a pointer to the display list representing the shadow.
  */
-Gfx *create_shadow_below_xyz(Vec3f pos, s16 shadowScale, u8 shadowSolidity, s8 shadowType, s8 shifted) {
+Gfx *create_shadow_below_xyz(Vec3f pos, s16 shadowScale, u8 shadowSolidity, s8 shadowType, UNUSED s8 shifted) {
     struct Object *obj = gCurGraphNodeObjectNode;
     // Check if the object exists.
     if (obj == NULL) {
@@ -297,11 +297,6 @@ Gfx *create_shadow_below_xyz(Vec3f pos, s16 shadowScale, u8 shadowSolidity, s8 s
         // No shadow if the y-normal is negative (an unexpected result).
         if (ny <= 0.0f) {
             return NULL;
-        }
-
-        // If the animation changes the shadow position, move its height to the new position.
-        if (shifted) {
-            floorHeight = -((x * nx) + (z * nz) + floor->originOffset) / ny;
         }
     }
 

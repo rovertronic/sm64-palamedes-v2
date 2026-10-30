@@ -238,6 +238,7 @@ struct AnimInfo {
     /*0x00 0x38*/ s16 animID;
     /*0x02 0x3A*/ s16 animYTrans;
     /*0x04 0x3C*/ struct Animation *curAnim;
+                  struct Animation *curAnimLogic;
     /*0x08 0x40*/ s16 animFrame;
     /*0x0A 0x42*/ u16 animTimer;
     /*0x0C 0x44*/ s32 animFrameAccelAssist;
@@ -254,6 +255,8 @@ struct GraphNodeObject {
     /*0x1A*/ Vec3s angle;
     /*0x20*/ Vec3f pos;
     /*0x2C*/ Vec3f scale;
+             Vec3f posCache;
+             Vec3f posVideoCache;
              Vec3f posLerp;
              Vec3f translationLerp;
              Vec3f scaleLerp;
@@ -314,7 +317,6 @@ struct Object {
         const void *asConstVoidPtr[MAX_OBJECT_FIELDS];
     } ptrData;
 #endif
-    /*0x1C8*/ u32 unused1;
     /*0x1CC*/ const BehaviorScript *curBhvCommand;
     /*0x1D0*/ u32 bhvStackIndex;
     /*0x1D4*/ uintptr_t bhvStack[8];
@@ -326,13 +328,13 @@ struct Object {
     /*0x204*/ f32 hurtboxHeight;
     /*0x208*/ f32 hitboxDownOffset;
     /*0x20C*/ const BehaviorScript *behavior;
-    /*0x210*/ u32 unused2;
     /*0x214*/ struct Object *platform;
     /*0x218*/ void *collisionData;
     /*0x21C*/ Mat4 transform;
     /*0x25C*/ void *respawnInfo;
               void * shadow;
               u32 regionFlags;
+              s8 primaryRegionId;
 };
 
 struct ObjectHitbox {
@@ -359,18 +361,15 @@ struct Normal {
 };
 
 struct Surface {
-    s16 type:12;
-    u8 material:4;
-    TerrainData force;
+    u16 type:10;
+    u16 material:6;
     s8 flags;
-    RoomData room;
     s16 lowerY;
     s16 upperY;
     Vec3t vertex1;
     Vec3t vertex2;
     Vec3t vertex3;
     struct Normal normal;
-    f32 originOffset;
     struct Object *object;
 };
 

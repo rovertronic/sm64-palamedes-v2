@@ -24,7 +24,6 @@
 
 static s16 sWasAtSurface = FALSE;
 static s16 sSwimStrength = MIN_SWIM_STRENGTH;
-static s16 sWaterCurrentSpeeds[] = { 28, 12, 8, 4 };
 
 static s16 sBobTimer;
 static s16 sBobIncrement;
@@ -125,8 +124,8 @@ static void apply_water_current(struct MarioState *m, Vec3f step) {
     s16 pitchToWhirlpool, yawToWhirlpool;
 
     if (m->floor->type == SURFACE_FLOWING_WATER) {
-        s16 currentAngle = m->floor->force << 8;
-        f32 currentSpeed = sWaterCurrentSpeeds[m->floor->force >> 8];
+        s16 currentAngle = 0;
+        f32 currentSpeed = 0;
 
         step[0] += currentSpeed * sins(currentAngle);
         step[2] += currentSpeed * coss(currentAngle);

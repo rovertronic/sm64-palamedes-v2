@@ -14,6 +14,8 @@ const GeoLayout test_area_1_geo[] = {
 			GEO_ASM(0, geo_region),
 			GEO_DISPLAY_LIST(LAYER_OPAQUE, test_dl_Cube_002_mesh_layer_1),
 		GEO_CLOSE_NODE(),
+		GEO_ASM(0, geo_region_revert),
+		GEO_TRANSLATE_NODE(LAYER_OPAQUE, -395, -1553, 5260),
 		GEO_ASM(0, geo_vxit_bridge),
 		GEO_DISPLAY_LIST(LAYER_OPAQUE, test_dl_testbridge2_gfx_mesh_layer_1),
 		GEO_ASM(0, geo_vxit_bridge),

@@ -12,20 +12,17 @@
 
 #include "config.h"
 
-static s16 sMovingSandSpeeds[] = { 12, 8, 4, 0 };
+//static s16 sMovingSandSpeeds[] = { 12, 8, 4, 0 };
 
 struct Surface gWaterSurfacePseudoFloor = {
-    .type = SURFACE_VERY_SLIPPERY,     
-    .force = 0x0,                      
-    .flags = 0x0,                      
-    .room =  0,                        
+    .type = SURFACE_VERY_SLIPPERY,                       
+    .flags = 0x0,                        
     .lowerY = -SURFACE_VERTICAL_BUFFER,
     .upperY =  SURFACE_VERTICAL_BUFFER,
     .vertex1 = { 0, 0, 0 },            
     .vertex2 = { 0, 0, 0 },            
     .vertex3 = { 0, 0, 0 },            
-    .normal = { 0.0f, 1.0f, 0.0f },    
-    .originOffset = 0.0f,              
+    .normal = { 0.0f, 1.0f, 0.0f },          
     .object = NULL,                    
     .material = SURFMAT_STONE,
 };
@@ -195,8 +192,8 @@ u32 mario_update_moving_sand(struct MarioState *m) {
 
     if (floorType == SURFACE_DEEP_MOVING_QUICKSAND || floorType == SURFACE_SHALLOW_MOVING_QUICKSAND
         || floorType == SURFACE_MOVING_QUICKSAND || floorType == SURFACE_INSTANT_MOVING_QUICKSAND) {
-        s16 pushAngle = floor->force << 8;
-        f32 pushSpeed = sMovingSandSpeeds[floor->force >> 8];
+        s16 pushAngle = 0;
+        f32 pushSpeed = 0;
 
         m->vel[0] += pushSpeed * sins(pushAngle);
         m->vel[2] += pushSpeed * coss(pushAngle);
@@ -212,7 +209,7 @@ u32 mario_update_windy_ground(struct MarioState *m) {
 
     if (floor->type == SURFACE_HORIZONTAL_WIND) {
         f32 pushSpeed;
-        s16 pushAngle = floor->force << 8;
+        s16 pushAngle = 0;
 
         if (m->action & ACT_FLAG_MOVING) {
             s16 pushDYaw = m->faceAngle[1] - pushAngle;
@@ -297,7 +294,6 @@ static s32 perform_ground_quarter_step(struct MarioState *m, Vec3f nextPos) {
     if ((m->action & ACT_FLAG_RIDING_SHELL) && floorHeight < waterLevel) {
         floorHeight = waterLevel;
         floor = &gWaterSurfacePseudoFloor;
-        floor->originOffset = -floorHeight;
     }
 
     if (nextPos[1] > floorHeight + 100.0f) {
@@ -490,7 +486,6 @@ s32 perform_air_quarter_step(struct MarioState *m, Vec3f intendedPos, u32 stepAr
     if ((m->action & ACT_FLAG_RIDING_SHELL) && floorHeight < waterLevel) {
         floorHeight = waterLevel;
         floor = &gWaterSurfacePseudoFloor;
-        floor->originOffset = -floorHeight;
     }
 
     //! This check uses f32, but findFloor uses short (overflow jumps)

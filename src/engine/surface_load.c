@@ -80,9 +80,7 @@ static struct Surface *alloc_surface(u32 dynamic) {
     gSurfacesAllocated++;
 
     surface->type = SURFACE_DEFAULT;
-    surface->force = 0;
     surface->flags = SURFACE_FLAGS_NONE;
-    surface->room = 0;
     surface->object = NULL;
 
     return surface;
@@ -269,8 +267,6 @@ static struct Surface *read_surface_data(TerrainData *vertexData, TerrainData **
     surface->normal.y = n[1];
     surface->normal.z = n[2];
 
-    surface->originOffset = -vec3_dot(n, v[0]);
-
     min_max_3s(v[0][1], v[1][1], v[2][1], &min, &max);
     surface->lowerY = (min - SURFACE_VERTICAL_BUFFER);
     surface->upperY = (max + SURFACE_VERTICAL_BUFFER);
@@ -330,10 +326,9 @@ static s32 surf_has_no_cam_collision(s32 surfaceType) {
  * Load in the surfaces for a given surface type. This includes setting the flags,
  * exertion, and room.
  */
-static void load_static_surfaces(TerrainData **data, TerrainData *vertexData, s32 surfaceType, RoomData **surfaceRooms) {
+static void load_static_surfaces(TerrainData **data, TerrainData *vertexData, s32 surfaceType, UNUSED RoomData **surfaceRooms) {
     s32 i;
     struct Surface *surface;
-    RoomData room = 0;
 
     s32 type = surfaceType & SURFACE_MASK_TYPE;
     s32 material = (surfaceType >> 12);
@@ -346,26 +341,11 @@ static void load_static_surfaces(TerrainData **data, TerrainData *vertexData, s3
     s32 numSurfaces = *(*data)++;
 
     for (i = 0; i < numSurfaces; i++) {
-        if (*surfaceRooms != NULL) {
-            room = *(*surfaceRooms)++;
-        }
-
         surface = read_surface_data(vertexData, data, FALSE);
         if (surface != NULL) {
-            surface->room = room;
             surface->type = type;
             surface->material = material;
             surface->flags = flags;
-
-#ifdef ALL_SURFACES_HAVE_FORCE
-            surface->force = *(*data + 3);
-#else
-            if (hasForce) {
-                surface->force = *(*data + 3);
-            } else {
-                surface->force = 0;
-            }
-#endif
 
             add_surface(surface, FALSE);
         }
@@ -620,10 +600,6 @@ void load_object_surfaces(TerrainData **data, TerrainData *vertexData, u32 dynam
 
     s32 flags = surf_has_no_cam_collision(type) | (dynamic ? SURFACE_FLAG_DYNAMIC : 0);
 
-    // The DDD warp is initially loaded at the origin and moved to the proper
-    // position in paintings.c and doesn't update its room, so set it here.
-    RoomData room = (o->behavior == segmented_to_virtual(bhvDddWarp)) ? 5 : 0;
-
     for (i = 0; i < numSurfaces; i++) {
         struct Surface *surface = read_surface_data(vertexData, data, dynamic);
 
@@ -632,18 +608,7 @@ void load_object_surfaces(TerrainData **data, TerrainData *vertexData, u32 dynam
             surface->type = type;
             surface->material = material;
 
-#ifdef ALL_SURFACES_HAVE_FORCE
-            surface->force = *(*data + 3);
-#else
-            if (hasForce) {
-                surface->force = *(*data + 3);
-            } else {
-                surface->force = 0;
-            }
-#endif
-
             surface->flags |= flags;
-            surface->room = room;
             add_surface(surface, dynamic);
         }
 
@@ -806,16 +771,6 @@ void load_dynamic_surfaces_custom(TerrainData **data, TerrainData *vertexData, u
         if (surface != NULL) {
             surface->type = type;
             surface->material = material;
-
-#ifdef ALL_SURFACES_HAVE_FORCE
-            surface->force = *(*data + 3);
-#else
-            if (hasForce) {
-                surface->force = *(*data + 3);
-            } else {
-                surface->force = 0;
-            }
-#endif
 
             add_surface(surface, dynamic);
         }

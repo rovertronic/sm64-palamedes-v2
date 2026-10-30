@@ -36,6 +36,7 @@
 #include "coin.h"
 #include "neo_shadow.h"
 #include "engine/surface_load.h"
+#include "level_region.h"
 
 /**
  * @file obj_behaviors.c

@@ -7,6 +7,7 @@
 #include "config.h"
 #include "game/cubic_volume.h"
 #include "game/level_region.h"
+#include "data/event_externs.h"
 
 enum LevelCommands {
     /*0x00*/ LEVEL_CMD_LOAD_AND_EXECUTE,
@@ -76,6 +77,7 @@ enum LevelCommands {
              LEVEL_CMD_CUBIC_VOLUME,
              LEVEL_CMD_BRIDGE_START,
              LEVEL_CMD_BRIDGE_END,
+             LEVEL_CMD_REGION_OBJECT,
 };
 
 enum LevelActs {
@@ -468,6 +470,16 @@ enum GoddardScene {
     CMD_F(rz), \
     CMD_W(type), \
     CMD_W(param)
+
+#define REGION_OBJECT(x, y, z, stub_x, ry, stub_z, bp1,bp2,bp3,bp4, modelid, bhv, event) \
+    CMD_BBH(LEVEL_CMD_REGION_OBJECT, 4*8, ry), \
+    CMD_F(x), \
+    CMD_F(y), \
+    CMD_F(z), \
+    CMD_W((bp1 << 24) | (bp2 << 16) | (bp3 << 8) | (bp4)), \
+    CMD_W(modelid), \
+    CMD_PTR(bhv), \
+    CMD_PTR(event)
 
 #define BRIDGE_START(size, collision, x, y, z) \
     CMD_BBBB(LEVEL_CMD_BRIDGE_START, 4*5, size, 0), \

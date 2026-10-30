@@ -10,6 +10,46 @@
 #include "surface_load.h"
 #include "game/puppyprint.h"
 
+void get_surface_normal_oo(f32 normal[4], struct Surface *surf) {
+    f32 nx, ny, nz;
+    f32 mag;
+
+    register s32 x1, y1, z1;
+    register s32 x2, y2, z2;
+    register s32 x3, y3, z3;
+
+    x1 = surf->vertex1[0];
+    y1 = surf->vertex1[1];
+    z1 = surf->vertex1[2];
+    x2 = surf->vertex2[0];
+    y2 = surf->vertex2[1];
+    z2 = surf->vertex2[2];
+    x3 = surf->vertex3[0];
+    y3 = surf->vertex3[1];
+    z3 = surf->vertex3[2];
+
+    // (v2 - v1) x (v3 - v2)
+    nx = (y2 - y1) * (z3 - z2) - (z2 - z1) * (y3 - y2);
+    ny = (z2 - z1) * (x3 - x2) - (x2 - x1) * (z3 - z2);
+    nz = (x2 - x1) * (y3 - y2) - (y2 - y1) * (x3 - x2);
+    mag = sqrtf(nx * nx + ny * ny + nz * nz);
+    mag = (f32)(1.0f / mag);
+    nx *= mag;
+    ny *= mag;
+    nz *= mag;
+
+    normal[0] = nx;
+    normal[1] = ny;
+    normal[2] = nz;
+    normal[3] = -(nx * x1 + ny * y1 + nz * z1);
+}
+
+f32 get_surface_height_at_location(s32 x, s32 z, struct Surface *surf) {
+    f32 normal[4];
+    get_surface_normal_oo(normal, surf);
+    return -(x * normal[0] + normal[2] * z + normal[3]) / normal[1];
+}
+
 /**************************************************
  *                      WALLS                     *
  **************************************************/
@@ -90,11 +130,11 @@ static s32 find_wall_collisions_from_list(struct SurfaceNode *surfaceNode, struc
             }
         }
 
+        f32 normal[4];
+        get_surface_normal_oo(normal, surf);
+
         // Dot of normal and pos, + origin offset
-        offset = (surf->normal.x * pos[0])
-               + (surf->normal.y * pos[1])
-               + (surf->normal.z * pos[2])
-               + surf->originOffset;
+        offset = (normal[0] * pos[0]) + (normal[1] * pos[1]) + (normal[2] * pos[2]) + normal[3];
 
         // Exclude surfaces outside of the radius.
         if (offset < -radius || offset > radius) continue;
@@ -659,17 +699,7 @@ f32 find_room_floor(f32 x, f32 y, f32 z, struct Surface **pfloor) {
 /**
  * Get the room index at a given position.
  */
-s32 get_room_at_pos(f32 x, f32 y, f32 z) {
-    if (gCurrentArea->surfaceRooms != NULL) {
-        struct Surface *floor;
-
-        find_room_floor(x, y, z, &floor);
-
-        if (floor != NULL) {
-            return floor->room;
-        }
-    }
-
+s32 get_room_at_pos(UNUSED f32 x, UNUSED f32 y, UNUSED f32 z) {
     return -1;
 }
 
@@ -899,43 +929,3 @@ void debug_surface_list_info(f32 xPos, f32 zPos) {
     gNumCalls.wall = 0;
 }
 #endif
-
-/**
- * An unused function that finds and interacts with any type of surface.
- * Perhaps an original implementation of surfaces before they were more specialized.
- */
-s32 unused_resolve_floor_or_ceil_collisions(s32 checkCeil, f32 *px, f32 *py, f32 *pz, f32 radius,
-                                            struct Surface **psurface, f32 *surfaceHeight) {
-    f32 x = *px;
-    f32 y = *py;
-    f32 z = *pz;
-
-    *psurface = NULL;
-
-    if (checkCeil) {
-        *surfaceHeight = find_ceil(x, y, z, psurface);
-    } else {
-        *surfaceHeight = find_floor(x, y, z, psurface);
-    }
-
-    if (*psurface == NULL) return -1;
-
-    f32 nx = (*psurface)->normal.x;
-    f32 ny = (*psurface)->normal.y;
-    f32 nz = (*psurface)->normal.z;
-    f32 oo = (*psurface)->originOffset;
-
-    f32 offset = absf((nx * x) + (ny * y) + (nz * z) + oo);
-
-    // Interesting surface interaction that should be surf type independent.
-    if (offset < radius) {
-        offset = (radius - offset);
-        *px += (nx * offset);
-        *py += (ny * offset);
-        *pz += (nz * offset);
-
-        return 1;
-    }
-
-    return 0;
-}

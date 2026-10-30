@@ -119,21 +119,9 @@ Gfx *geo_switch_anim_state(s32 callContext, struct GraphNode *node, UNUSED void 
 
 Gfx *geo_switch_area(s32 callContext, struct GraphNode *node, UNUSED void *context) {
     struct GraphNodeSwitchCase *switchCase = (struct GraphNodeSwitchCase *) node;
-    RoomData room;
 
     if (callContext == GEO_CONTEXT_RENDER && gMarioObject != NULL) {
-        room = get_room_at_pos(
-            gMarioObject->oPosX,
-            gMarioObject->oPosY,
-            gMarioObject->oPosZ
-        );
-
         print_debug_top_down_objectinfo("areainfo %d", room);
-
-        if (room > 0) {
-            gMarioCurrentRoom = room;
-            switchCase->selectedCase = (room - 1);
-        }
     } else {
         switchCase->selectedCase = 0;
     }
@@ -369,6 +357,7 @@ struct Object *spawn_object_at_origin(struct Object *parent, UNUSED s32 unusedAr
     struct Object *obj = create_object(behaviorAddr);
 
     obj->parentObj = parent;
+    obj->regionFlags = parent->regionFlags;
     obj->header.gfx.areaIndex = parent->header.gfx.areaIndex;
     obj->header.gfx.activeAreaIndex = parent->header.gfx.areaIndex;
 
@@ -946,12 +935,7 @@ static void cur_obj_move_xz(f32 steepSlopeNormalY, s32 careAboutEdgesAndSteepSlo
 
     o->oMoveFlags &= ~OBJ_MOVE_HIT_EDGE;
 
-    if (o->oRoom != -1
-        && intendedFloor != NULL
-        && intendedFloor->room != 0
-        && o->oRoom != intendedFloor->room
-        && intendedFloor->room != 18) {
-        // Don't leave native room
+    if (o->oRoom != -1) {
         return;
     }
 
@@ -1370,7 +1354,7 @@ static void cur_obj_update_floor(void) {
     if (floor != NULL) {
         SurfaceType floorType = floor->type;
         o->oFloorType = floorType;
-        o->oFloorRoom = floor->room;
+        o->oFloorRoom = -1;
     } else {
         o->oFloorType = SURFACE_DEFAULT;
         o->oFloorRoom = 0;

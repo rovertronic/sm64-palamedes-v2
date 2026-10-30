@@ -209,7 +209,7 @@ void play_infinite_stairs_music(void) {
 
     /* Infinite stairs? */
     if (gCurrLevelNum == LEVEL_CASTLE && gCurrAreaIndex == 2 && gMarioState->numStars < 70) {
-        if (gMarioState->floor != NULL && gMarioState->floor->room == 6) {
+        if (gMarioState->floor != NULL) {
             if (gMarioState->pos[2] < 2540.0f) {
                 shouldPlay = TRUE;
             }

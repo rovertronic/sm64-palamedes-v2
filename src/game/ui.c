@@ -12,6 +12,7 @@
 #include "text_load.h"
 #include "level_update.h"
 #include "geo_misc.h"
+#include "neo_save.h"
 
 const Gfx dl_ui_draw_text_bg_box[] = {
     gsDPPipeSync(),
@@ -615,8 +616,9 @@ void ui_logic(void) {
         ui_trans_ptr(sUiidHudTrans[0])->pos[0] = 22;
         sHudEmphasisTimer[0] = 3.25f;
     }
-    if (ui_object_ptr(sUiidHudText[1])->printInt[0] != gMarioState->numStars) {
-        ui_object_ptr(sUiidHudText[1])->printInt[0] = gMarioState->numStars;
+    s16 starct = neo_save_collectible_count(gCurrNeoSaveFile->stars,STAR_MISSION_COUNT);
+    if (ui_object_ptr(sUiidHudText[1])->printInt[0] != starct) {
+        ui_object_ptr(sUiidHudText[1])->printInt[0] = starct;
         ui_trans_ptr(sUiidHudTrans[1])->posLerp[0] = 22;
         ui_trans_ptr(sUiidHudTrans[1])->pos[0] = 22;
         sHudEmphasisTimer[1] = 3.25f;

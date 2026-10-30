@@ -24,16 +24,6 @@ static struct ObjectHitbox sRedCoinHitbox = {
  * Red coin initialization function. Sets the coin's hitbox and parent object.
  */
 void bhv_red_coin_init(void) {
-    // Set the red coins to have a parent of the closest red coin star.
-    struct Object *hiddenRedCoinStar = cur_obj_nearest_object_with_behavior(bhvHiddenRedCoinStar);
-    if (hiddenRedCoinStar != NULL) {
-        o->parentObj = hiddenRedCoinStar;
-    } else if ((hiddenRedCoinStar = cur_obj_nearest_object_with_behavior(bhvBowserCourseRedCoinStar)) != NULL) {
-        o->parentObj = hiddenRedCoinStar;
-    } else {
-        o->parentObj = NULL;
-    }
-
     coin_obj_create(1);
     obj_set_hitbox(o, &sRedCoinHitbox);
 }
@@ -43,45 +33,46 @@ void bhv_red_coin_init(void) {
  * the orange number counter.
  */
 void bhv_red_coin_loop(void) {
+    s8 redCoinSlot = o->primaryRegionId;
+    if (o->primaryRegionId == -1) {
+        redCoinSlot = 32;
+    }
     // If Mario interacted with the object...
     if (o->oInteractStatus & INT_STATUS_INTERACTED) {
-        // ...and there is a red coin star in the level...
-        if (o->parentObj != NULL) {
-            // ...increment the star's counter.
-            o->parentObj->oHiddenStarTriggerCounter++;
+        // ...increment the star's counter.
+        gRegionRedCoins[redCoinSlot]++;
 
-            // Spawn the orange number counter, as long as it isn't the last coin.
-            if (o->parentObj->oHiddenStarTriggerCounter != o->parentObj->oHiddenStarTriggerTotal) {
-                // Cap visible count to 99
-                if (o->parentObj->oHiddenStarTriggerCounter > 99) {
-                    spawn_orange_number(9, 28, 0, 0);
-                    spawn_orange_number(9, -28, 0, 0);
-                }
-                else if (o->parentObj->oHiddenStarTriggerCounter >= 10) {
-                    spawn_orange_number(o->parentObj->oHiddenStarTriggerCounter % 10, 28, 0, 0);
-                    spawn_orange_number(o->parentObj->oHiddenStarTriggerCounter / 10, -28, 0, 0);
-                }
-                else {
-                    spawn_orange_number(o->parentObj->oHiddenStarTriggerCounter, 0, 0, 0);
-                }
+        // Spawn the orange number counter, as long as it isn't the last coin.
+        if (gRegionRedCoins[redCoinSlot] != 8) {
+            // Cap visible count to 99
+            if (gRegionRedCoins[redCoinSlot] > 99) {
+                spawn_orange_number(9, 28, 0, 0);
+                spawn_orange_number(9, -28, 0, 0);
             }
-
-#ifdef JP_RED_COIN_SOUND
-            // For JP version, play an identical sound for all coins.
-            create_sound_spawner(SOUND_GENERAL_RED_COIN);
-#else
-            if (o->parentObj->oHiddenStarTriggerTotal - o->parentObj->oHiddenStarTriggerCounter > 7) {
-                // Play the first red coin sound until it gets to the final 8
-                play_sound(SOUND_MENU_COLLECT_RED_COIN, gGlobalSoundSource);
+            else if (gRegionRedCoins[redCoinSlot] >= 10) {
+                spawn_orange_number(gRegionRedCoins[redCoinSlot] % 10, 28, 0, 0);
+                spawn_orange_number(gRegionRedCoins[redCoinSlot] / 10, -28, 0, 0);
             }
             else {
-                // On all versions but the JP version, each coin collected plays a higher noise.
-                play_sound(SOUND_MENU_COLLECT_RED_COIN
-                        + (((u8) 7 - (o->parentObj->oHiddenStarTriggerTotal - o->parentObj->oHiddenStarTriggerCounter)) << 16),
-                        gGlobalSoundSource);
+                spawn_orange_number(gRegionRedCoins[redCoinSlot], 0, 0, 0);
             }
-#endif
         }
+
+#ifdef JP_RED_COIN_SOUND
+        // For JP version, play an identical sound for all coins.
+        create_sound_spawner(SOUND_GENERAL_RED_COIN);
+#else
+        if (8 - gRegionRedCoins[redCoinSlot] > 7) {
+            // Play the first red coin sound until it gets to the final 8
+            play_sound(SOUND_MENU_COLLECT_RED_COIN, gGlobalSoundSource);
+        }
+        else {
+            // On all versions but the JP version, each coin collected plays a higher noise.
+            play_sound(SOUND_MENU_COLLECT_RED_COIN
+                    + (((u8) 7 - (8 - gRegionRedCoins[redCoinSlot])) << 16),
+                    gGlobalSoundSource);
+        }
+#endif
 
         coin_collected();
         // Despawn the coin.
