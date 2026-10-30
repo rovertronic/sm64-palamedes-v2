@@ -255,24 +255,31 @@ u32 main_pool_pop_state(void) {
     return sPoolFreeSpace;
 }
 
+/*
+Threadsafe DMA written by Devwizard
+*/
+
 /**
  * Perform a DMA read from ROM. The transfer is split into 4KB blocks, and this
  * function blocks until completion.
  */
-void dma_read(u8 *dest, u8 *srcStart, u8 *srcEnd) {
-    u32 size = ALIGN16(srcEnd - srcStart);
-
-    osInvalDCache(dest, size);
-    while (size != 0) {
-        u32 copySize = (size >= 0x1000) ? 0x1000 : size;
-
-        osPiStartDma(&gDmaIoMesg, OS_MESG_PRI_NORMAL, OS_READ, (uintptr_t) srcStart, dest, copySize,
-                     &gDmaMesgQueue);
-        osRecvMesg(&gDmaMesgQueue, &gMainReceivedMesg, OS_MESG_BLOCK);
-
-        dest += copySize;
-        srcStart += copySize;
-        size -= copySize;
+void dma_read(unsigned char *dst, const unsigned char *start, const unsigned char *end) {
+    size_t size = ALIGN16(end-start);
+    OSIoMesg mb;
+    OSMesgQueue mq;
+    OSMesg mbox[1];
+    osCreateMesgQueue(&mq, mbox, 1);
+    osInvalDCache(dst, size);
+    while (size > 0)
+    {
+        size_t n = size >= 0x1000 ? 0x1000 : size;
+        osPiStartDma(
+            &mb, OS_MESG_PRI_NORMAL, OS_READ, (long)start, dst, n, &mq
+        );
+        osRecvMesg(&mq, NULL, OS_MESG_BLOCK);
+        dst   += n;
+        start += n;
+        size  -= n;
     }
 }
 

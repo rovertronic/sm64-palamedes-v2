@@ -15,6 +15,7 @@
 #include "graph_node.h"
 #include "surface_collision.h"
 #include "game/level_region.h"
+#include "game/frame_lerp.h"
 
 // Macros for retrieving arguments from behavior scripts.
 #define BHV_CMD_GET_1ST_U8(index)     (u8)((gCurBhvCommand[index] >> 24) & 0xFF) // unused
@@ -954,4 +955,10 @@ void cur_obj_update(void) {
             o->activeFlags &= ~ACTIVE_FLAG_FAR_AWAY;
         }
     }
+
+    if (o->header.gfx.animInfo.curAnim != NULL) {
+        o->header.gfx.animInfo.animFrame = geo_update_animation_frame(&o->header.gfx.animInfo, &o->header.gfx.animInfo.animFrameAccelAssist);
+    }
+
+    frameLerp_cache_pos(o->header.gfx.pos,o->header.gfx.posCache,o->header.gfx.posVideoCache);
 }

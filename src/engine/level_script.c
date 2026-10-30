@@ -35,6 +35,8 @@
 #include "game/coin.h"
 #include "game/level_region.h"
 #include "game/event_dialog.h"
+#include "game/main.h"
+#include <PR/os_internal_reg.h>
 
 #include "config.h"
 
@@ -327,6 +329,13 @@ static void level_cmd_change_area_skybox(void) {
 }
 
 static void level_cmd_init_level(void) {
+    if (gLevelChangeSpinlockState == 1) {
+        gLevelChangeSpinlockState = 2;
+        while(gLevelChangeSpinlockState == 2){
+            osRecvMesg(&gGameVblankQueue, &gMainReceivedMesg, OS_MESG_BLOCK);
+        }
+    }
+
     init_graph_node_start(NULL, (struct GraphNodeStart *) &gObjParentGraphNode);
     clear_objects();
     clear_areas();
@@ -368,6 +377,13 @@ void unmap_tlbs(void) {
 }
 
 static void level_cmd_clear_level(void) {
+    if (gLevelChangeSpinlockState == 1) {
+        gLevelChangeSpinlockState = 2;
+        while(gLevelChangeSpinlockState == 2){
+            osRecvMesg(&gGameVblankQueue, &gMainReceivedMesg, OS_MESG_BLOCK);
+        }
+    }
+
     clear_objects();
     clear_area_graph_nodes();
     clear_areas();
@@ -402,6 +418,10 @@ static void level_cmd_free_level_pool(void) {
         }
     }
     main_pool_push_state();
+
+    if (gLevelChangeSpinlockState == 3) {
+        gLevelChangeSpinlockState = 1;
+    }
 
     sCurrentCmd = CMD_NEXT;
 }

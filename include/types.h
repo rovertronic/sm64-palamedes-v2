@@ -238,6 +238,7 @@ struct AnimInfo {
     /*0x00 0x38*/ s16 animID;
     /*0x02 0x3A*/ s16 animYTrans;
     /*0x04 0x3C*/ struct Animation *curAnim;
+                  struct Animation *curAnimLogic;
     /*0x08 0x40*/ s16 animFrame;
     /*0x0A 0x42*/ u16 animTimer;
     /*0x0C 0x44*/ s32 animFrameAccelAssist;
@@ -254,6 +255,8 @@ struct GraphNodeObject {
     /*0x1A*/ Vec3s angle;
     /*0x20*/ Vec3f pos;
     /*0x2C*/ Vec3f scale;
+             Vec3f posCache;
+             Vec3f posVideoCache;
              Vec3f posLerp;
              Vec3f translationLerp;
              Vec3f scaleLerp;
