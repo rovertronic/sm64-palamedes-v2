@@ -6088,8 +6088,8 @@ const BehaviorScript bhvIntroScene[] = {
 /* [End] Palamedes V2 More Objects Patch */
 
 const BehaviorScript bhvNPC[] = {
-    BEGIN(OBJ_LIST_LEVEL),
-    OR_INT(oFlags, OBJ_FLAG_UPDATE_GFX_POS_AND_ANGLE),
+    BEGIN(OBJ_LIST_GENACTOR),
+    OR_LONG(oFlags, (OBJ_FLAG_UPDATE_GFX_POS_AND_ANGLE | OBJ_FLAG_INTERACT_EVENT)),
     SET_INTERACT_TYPE(INTERACT_IGLOO_BARRIER),
     SET_HITBOX(/*Radius*/ 100, /*Height*/ 200),
     SET_INT(oIntangibleTimer, 0),

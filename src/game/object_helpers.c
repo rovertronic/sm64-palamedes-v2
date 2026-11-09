@@ -604,6 +604,29 @@ struct Object *cur_obj_find_nearest_object_with_behavior(const BehaviorScript *b
     return closestObj;
 }
 
+struct Object *cur_obj_find_nearest_interact_event_object() {
+    struct ObjectNode *listHead = &gObjectLists[OBJ_LIST_GENACTOR];
+    struct Object *obj = (struct Object *) listHead->next;
+    struct Object *closestObj = NULL;
+    f32 minDist = 0x20000;
+
+    while (obj != (struct Object *) listHead) {
+        if ((obj->oFlags & OBJ_FLAG_INTERACT_EVENT)
+            && obj->activeFlags != ACTIVE_FLAG_DEACTIVATED
+            && obj != o
+        ) {
+            f32 objDist = dist_between_objects(o, obj);
+            if (objDist < minDist) {
+                closestObj = obj;
+                minDist = objDist;
+            }
+        }
+
+        obj = (struct Object *) obj->header.next;
+    }
+    return closestObj;
+}
+
 struct Object *find_unimportant_object(void) {
     struct ObjectNode *listHead = &gObjectLists[OBJ_LIST_UNIMPORTANT];
     struct ObjectNode *obj = listHead->next;

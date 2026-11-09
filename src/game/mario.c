@@ -959,7 +959,7 @@ u32 set_mario_action_cutscene(struct MarioState *m, u32 action, UNUSED u32 actio
 
 void set_mario_interest(void) {
     gMarioState->objInterest = NULL;
-    struct Object * nearestNPC = cur_obj_nearest_object_with_behavior(bhvNPC);
+    struct Object * nearestNPC = cur_obj_find_nearest_interact_event_object();
     if (nearestNPC && dist_between_objects(gMarioObject,nearestNPC) < 500.f) {
         gMarioState->objInterest = nearestNPC;
     }
