@@ -9,6 +9,8 @@
 #include "src/data/event.inc.c"
 #include "game_init.h"
 #include "object_helpers.h"
+#include "object_list_processor.h"
+#include "audio/external.h"
 
 
 Vec3f gEventCameraPos;
@@ -238,7 +240,36 @@ void event_absolute_cinema(UNUSED int callContext) {
     gEventHead++;
 }
 
-void event_end(UNUSED int callContext) {
+void event_seq(UNUSED int callContext) {
+    play_music(SEQ_PLAYER_LEVEL, SEQUENCE_ARGS(4, event_arg_int(0) ), 0);
+    gEventHead+=2;
+}
+
+void event_seq_stop(UNUSED int callContext) {
+    stop_background_music(SEQUENCE_ARGS(4, event_arg_int(0) ));
+    gEventHead+=2;
+}
+
+void event_warp(int callContext) {
+    switch(callContext) {
+        case EVENT_CALL_CONTEXT_EXECUTE:
+            sEventHalt = TRUE;
+            event_camera_set_target_pointer(gCamera->pos,gCamera->focus);
+
+            if (sUiidDialogTransform != UI_NONE) {
+                ui_trans_begin_remove(sUiidDialogTransform);
+            }
+
+            level_trigger_warp(gMarioState, WARP_OP_LOOK_UP);
+            sSourceWarpNodeId = event_arg_int(0);
+            break;
+        case EVENT_CALL_CONTEXT_HALTED:
+            gEventHead = NULL;
+            break;
+    }
+}
+
+void event_end(int callContext) {
     switch(callContext) {
         case EVENT_CALL_CONTEXT_EXECUTE:
             sEventHalt = TRUE;
@@ -253,7 +284,7 @@ void event_end(UNUSED int callContext) {
                 if (gMarioState->action == ACT_READING_NPC_DIALOG) {
                     set_mario_action(gMarioState, ACT_IDLE, 0);
                 }
-                disable_time_stop_including_mario();
+                gTimeStopState &= ~(TIME_STOP_ENABLED | TIME_STOP_MARIO_AND_DOORS);
                 gEventHead = NULL;
             }
             break;
@@ -306,7 +337,7 @@ void event_start(EventData * event) {
 
         sEventDialogOptionCount = 0;
 
-        enable_time_stop_including_mario();
+        gTimeStopState |= (TIME_STOP_ENABLED | TIME_STOP_MARIO_AND_DOORS);
     }
 }
 

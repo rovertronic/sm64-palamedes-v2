@@ -39,6 +39,9 @@ void event_dialog_choice(int callContext);
 void event_branch_cmd(int callContext);
 void event_end_branch(int callContext);
 void event_absolute_cinema(int callContext);
+void event_warp(int callContext);
+void event_seq(int callContext);
+void event_seq_stop(int callContext);
 void event_end(int callContext);
 
 #define E_DIALOG(TEXT)                {.func = event_set_dialog}, { .i = TEXT }
@@ -51,6 +54,9 @@ void event_end(int callContext);
 #define E_BRANCH(TO)                  {.func = event_branch_cmd}, { .v = TO }
 #define E_END_BRANCH()                {.func = event_end_branch}
 #define E_CINEMA_TOGGLE()             {.func = event_absolute_cinema}
+#define E_WARP(DEST)                  {.func = event_warp}, { .i = DEST }
+#define E_SEQ(ID)                     {.func = event_seq}, { .i = ID }
+#define E_SEQ_STOP(ID)                {.func = event_seq_stop}, { .i = ID }
 #define E_END()                       {.func = event_end}
 
 extern Vec3f gEventCameraPos;
