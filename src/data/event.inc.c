@@ -1,5 +1,6 @@
 #include "src/data/text_enums.h"
 #include "levels/test/header.inc.h"
+#include "include/seq_ids.h"
 
 EventData subEventTestOption1[] = {
     E_CINEMA_TOGGLE(),
@@ -29,4 +30,8 @@ EventData eventTestNPC[] = {
     E_DIALOG(TEXT_TEST_PROMPT),
     E_DIALOG(TEXT_TEST_END),
     E_END(),
+};
+
+EventData * gEventObjectEventList[] = {
+    eventTestNPC,
 };
