@@ -2,8 +2,6 @@
 
 char * sEnglishText[] = {
     // Hud Strings
-    [TEXT_COINS] = "$X%d",
-    [TEXT_STARS] = "★X%d",
     [TEXT_PAUSE] = "Paused...",
 
     // Debug Strings

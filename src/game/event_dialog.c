@@ -286,6 +286,8 @@ void event_end(int callContext) {
                 }
                 gTimeStopState &= ~(TIME_STOP_ENABLED | TIME_STOP_MARIO_AND_DOORS);
                 gEventHead = NULL;
+
+                ui_hud_create();
             }
             break;
     }
@@ -319,6 +321,8 @@ void event_camera_set(Vec3f pos, Vec3f foc) {
 // Event control functions
 void event_start(EventData * event) {
     if (gEventHead == NULL) {
+        ui_hud_destroy();
+
         sEventHalt = FALSE;
 
         sUiidDialogTransform = UI_NONE;

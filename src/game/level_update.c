@@ -1192,6 +1192,8 @@ s32 play_mode_change_level(void) {
     }
 
     if (--sTransitionTimer == -1) {
+        ui_hud_destroy();
+
         gHudDisplay.flags = HUD_DISPLAY_NONE;
         sTransitionTimer = 0;
         sTransitionUpdate = NULL;
@@ -1261,6 +1263,8 @@ s32 update_level(void) {
 }
 
 s32 init_level(void) {
+    ui_hud_create();
+
     s32 fadeFromColor = FALSE;
 #ifdef PUPPYPRINT_DEBUG
     OSTime first = osGetTime();

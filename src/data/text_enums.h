@@ -3,8 +3,6 @@
 
 enum {
     // Hud Strings
-    TEXT_COINS,
-    TEXT_STARS,
     TEXT_PAUSE,
 
     // Debug Strings

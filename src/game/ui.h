@@ -13,6 +13,8 @@ uiid ui_create_slice(s8 parentTransId, nineSliceParams * p, s16 x1, s16 y1, s16 
 uiid ui_create_btn(s8 parentTransId, s16 textId);
 uiid ui_create_rectangle(s8 parentTransId, s16 x1, s16 y1, s16 x2, s16 y2);
 
+uiid ui_create_text_quick(s8 parentTransId, s8 * textObject, char * text, s16 x, s16 y, u8 print_origin);
+
 s32 ui_is_not_transitioning(uiid myId);
 void ui_set_destroy_signal(uiid myId, uiDestroySignal * destroySignal);
 void ui_destroy_trans(uiid idPtr);
@@ -44,6 +46,10 @@ void ui_pause_create(void);
 void ui_pause_destroy(void);
 s32 ui_pause_logic(void);
 
+void ui_hud_create(void);
+void ui_hud_update(void);
+void ui_hud_destroy(void);
+
 #define UI_NONE -1
 
 #define UI_OBJECT_COUNT 30
@@ -55,6 +61,7 @@ enum {
     UI_CLASS_BUTTON,
     UI_CLASS_IMAGE,
     UI_CLASS_BOX,
+    UI_CLASS_TEXT_RAW,
 };
 
 enum {
@@ -85,7 +92,6 @@ typedef struct {
     u8 printParam;
     u8 printOrigin;
     u8 printFont;
-    s16 printInt[2];
 } uiObject;
 
 typedef struct {

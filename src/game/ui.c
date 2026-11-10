@@ -35,11 +35,6 @@ uiid gUiidScreen;
 uiid sUiidPauseTrans;
 uiDestroySignal sPauseDestroySignal;
 
-uiid sUiidHudTrans[2];
-uiid sUiidHudText[2];
-f32 sHudEmphasisTimer[2];
-f32 sHudMarioMoveTimer;
-
 void ui_mtx_inc(Mat4 mat) {
     mtxf_mul(sUiMatStack[sUiMatStackIndex],mat,sUiMatStack[sUiMatStackIndex-1]);
 
@@ -228,6 +223,18 @@ uiid ui_create_text(s8 parentTransId, s16 textId) {
     return myId;
 }
 
+uiid ui_create_text_raw(s8 parentTransId, char * text) {
+    s8 myId = ui_create_object(parentTransId);
+    uiObject * self = &sUiObjectList[myId];
+
+    self->type = UI_CLASS_TEXT_RAW;
+    self->x2 = 0;
+    self->printFont = FONT_SM64DS;
+    self->ptr = text;
+
+    return myId;
+}
+
 uiid ui_create_slice(s8 parentTransId, nineSliceParams * p, s16 x1, s16 y1, s16 x2, s16 y2) {
     s8 myId = ui_create_object(parentTransId);
     uiObject * self = &sUiObjectList[myId];
@@ -267,6 +274,19 @@ uiid ui_create_btn(s8 parentTransId, s16 textId) {
     self->printFont = FONT_SM64DS;
 
     return myId;
+}
+
+uiid ui_create_text_quick(s8 parentTransId, s8 * textObject, char * text, s16 x, s16 y, u8 print_origin) {
+    uiid textTransform = ui_create_transform(parentTransId);
+    ui_set_trans_xy(textTransform,x,y);
+
+    uiid textId = ui_create_text_raw(textTransform, text);
+    ui_object_ptr(textId)->printOrigin = print_origin;
+
+    if (textObject != NULL) {
+        *textObject = textId;
+    }
+    return textTransform;
 }
 
 void ui_trans_begin_remove(s8 myId) {
@@ -413,6 +433,7 @@ void ui_process_ui_object(uiObject * self) {
     char * str;
     int x;
     int y;
+    int xoffset;
     uiTrans * tp = ui_trans_ptr(self->parentTrans); 
     f32 parentAlpha = ui_trans_get_parents_alpha(self->parentTrans);
 
@@ -425,29 +446,58 @@ void ui_process_ui_object(uiObject * self) {
             utf8_init_print();
             utf8_set_font(self->printFont);
 
-            sprintf(sUiCharBuffer,get_text(self->text),self->printInt[0],self->printInt[1]);
-            str = sUiCharBuffer;
+            str = get_text(self->text);
 
             utf8_size(str,&x,&y);
             self->textXsize = x;
 
+            xoffset = 0;
+            switch(self->printOrigin) {
+                case PRINT_ORIGIN_LEFT:
+                    xoffset = x/2;
+                    break;
+                case PRINT_ORIGIN_RIGHT:
+                    xoffset = -x/2;
+                    break;
+            }
+
             if (self->x2 != 0) {
                 str = utf8_autonewline(str,self->x2);
             }
-            utf8_print(str,0,0);
+            utf8_print(str,(-x/2)+xoffset,0);
+            break;
+        case UI_CLASS_TEXT_RAW:
+            utf8_init_print();
+            utf8_set_font(self->printFont);
+
+            str = self->ptr;
+
+            utf8_size(str,&x,&y);
+            self->textXsize = x;
+
+            xoffset = 0;
+            switch(self->printOrigin) {
+                case PRINT_ORIGIN_LEFT:
+                    xoffset = x/2;
+                    break;
+                case PRINT_ORIGIN_RIGHT:
+                    xoffset = -x/2;
+                    break;
+            }
+            
+            utf8_print(str,(-x/2)+xoffset,0);
             break;
         case UI_CLASS_SLICE:
             init_slice_render(self->ptr);
             render_slice(self->x1,self->y1, self->x2, self->y2);
             break;
         case UI_CLASS_BUTTON:
-            sprintf(sUiCharBuffer,get_text(self->text),self->printInt[0],self->printInt[1]);
-            str = sUiCharBuffer;
+            str = get_text(self->text);
 
             utf8_size(str,&x,&y);
             self->textXsize = x;
 
-            int xoffset = 0;
+            xoffset = 0;
             switch(self->printOrigin) {
                 case PRINT_ORIGIN_LEFT:
                     xoffset = x/2;
@@ -578,71 +628,106 @@ void ui_logic(void) {
         }
     }
 
-    if ((gMarioState->action & ACT_GROUP_MASK) == ACT_GROUP_STATIONARY) {
-        sHudMarioMoveTimer -= .01f;
-        sHudMarioMoveTimer = MAX(sHudMarioMoveTimer,0.0f);
-    } else {
-        sHudMarioMoveTimer = 1.0f;
-    }
-
-    // Hud
-    for (int i = 0; i < 2; i++) {
-        if (sUiidHudText[i] != UI_NONE ) {
-            u8 size = ui_object_ptr(sUiidHudText[i])->textXsize;
-            f32 emphasis = CLAMP(sHudEmphasisTimer[i],0.0f,1.0f);
-            emphasis = smoothstep2(emphasis);
-            ui_trans_ptr(sUiidHudTrans[i])->pos[0] = ((-size)+(emphasis*(f32)(22+size)));
-
-            f32 bounce = sinf((CLAMP(sHudEmphasisTimer[i],3.0f,3.5f)-1.0f)*M_PI*4.0f)*3.0f;
-            ui_trans_ptr(sUiidHudTrans[i])->pos[1] = 209-(20*i)+bounce;
-
-            if (sHudMarioMoveTimer == 0.0f) {
-                sHudEmphasisTimer[i] += .05f;
-                sHudEmphasisTimer[i] = MIN(sHudEmphasisTimer[i],3.0f);
-            } else {
-                sHudEmphasisTimer[i] -= .05f;
-                sHudEmphasisTimer[i] = MAX(sHudEmphasisTimer[i],0.0f);
-            }
-            if (sHudEmphasisTimer[i] == 0.0f) {
-                ui_trans_ptr(sUiidHudTrans[i])->alpha = 0;
-            } else {
-                ui_trans_ptr(sUiidHudTrans[i])->alpha = 255;
-            }
-        }
-    }
-    if (ui_object_ptr(sUiidHudText[0])->printInt[0] != gMarioState->numCoins) {
-        ui_object_ptr(sUiidHudText[0])->printInt[0] = gMarioState->numCoins;
-        ui_trans_ptr(sUiidHudTrans[0])->posLerp[0] = 22;
-        ui_trans_ptr(sUiidHudTrans[0])->pos[0] = 22;
-        sHudEmphasisTimer[0] = 3.25f;
-    }
-    s16 starct = neo_save_collectible_count(gCurrNeoSaveFile->stars,STAR_MISSION_COUNT);
-    if (ui_object_ptr(sUiidHudText[1])->printInt[0] != starct) {
-        ui_object_ptr(sUiidHudText[1])->printInt[0] = starct;
-        ui_trans_ptr(sUiidHudTrans[1])->posLerp[0] = 22;
-        ui_trans_ptr(sUiidHudTrans[1])->pos[0] = 22;
-        sHudEmphasisTimer[1] = 3.25f;
-    }
+    ui_hud_update();
 }
 
 void ui_init(void) {
     gUiidScreen = ui_create_transform(UI_NONE);
     Vec3f screenCorner = {-160.0f,-120.0f,-120.0f};
     ui_set_trans_pos(gUiidScreen,screenCorner);
+}
 
-    sUiidHudTrans[0] = ui_create_transform(gUiidScreen);
-    sUiidHudTrans[1] = ui_create_transform(gUiidScreen);
-    ui_set_trans_xy(sUiidHudTrans[0],22,189);
-    ui_set_trans_xy(sUiidHudTrans[1],22,209);
+// HUD
+uiid sUiidHudTrans[2] = {UI_NONE, UI_NONE};
+uiid sUiidHudText[2];
+f32 sHudEmphasisTimer[2];
+f32 sHudMarioMoveTimer;
+char sCoinCharBuffer[6];
+char sStarCharBuffer[6];
 
-    sUiidHudText[0] = ui_create_text(sUiidHudTrans[0],TEXT_COINS);
-    sUiidHudText[1] = ui_create_text(sUiidHudTrans[1],TEXT_STARS);
-    ui_object_ptr(sUiidHudText[0])->printFont = FONT_PINBALL;
-    ui_object_ptr(sUiidHudText[1])->printFont = FONT_PINBALL;
+void ui_hud_create(void) {
+    if (sUiidHudTrans[0] == UI_NONE) {
+        sUiidHudTrans[0] = ui_create_transform(gUiidScreen);
+        sUiidHudTrans[1] = ui_create_transform(gUiidScreen);
+        ui_set_trans_xy(sUiidHudTrans[0],22,209);
+        ui_set_trans_xy(sUiidHudTrans[1],22,189);
 
-    sHudEmphasisTimer[0] = 0.0f;
-    sHudEmphasisTimer[1] = 0.0f;
-    sHudMarioMoveTimer = 0.0f;
+        sUiidHudText[0] = ui_create_text_raw(sUiidHudTrans[0],sCoinCharBuffer);
+        sUiidHudText[1] = ui_create_text_raw(sUiidHudTrans[1],sStarCharBuffer);
+        ui_object_ptr(sUiidHudText[0])->printFont = FONT_PINBALL;
+        ui_object_ptr(sUiidHudText[1])->printFont = FONT_PINBALL;
+
+        sHudEmphasisTimer[0] = 0.0f;
+        sHudEmphasisTimer[1] = 0.0f;
+
+        sHudMarioMoveTimer = 0.0f;
+    }
+}
+
+void ui_hud_destroy(void) {
+    if (sUiidHudTrans[0] != UI_NONE) {
+        ui_trans_begin_remove(sUiidHudTrans[0]);
+        ui_trans_begin_remove(sUiidHudTrans[1]);
+        sUiidHudTrans[0] = UI_NONE;
+        sUiidHudTrans[1] = UI_NONE;
+    }
+}
+
+void ui_hud_update(void) {
+    if (sUiidHudTrans[0] != UI_NONE) {
+
+        if ((gMarioState->action & ACT_GROUP_MASK) == ACT_GROUP_STATIONARY) {
+            sHudMarioMoveTimer -= .01f;
+            sHudMarioMoveTimer = MAX(sHudMarioMoveTimer,0.0f);
+        } else {
+            sHudMarioMoveTimer = 1.0f;
+        }
+
+        for (int i = 0; i < 2; i++) {
+            if (sUiidHudText[i] != UI_NONE ) {
+                u8 size = ui_object_ptr(sUiidHudText[i])->textXsize;
+                f32 emphasis = CLAMP(sHudEmphasisTimer[i],0.0f,1.0f);
+                emphasis = smoothstep2(emphasis);
+                ui_trans_ptr(sUiidHudTrans[i])->pos[0] = ((-size)+(emphasis*(f32)(22+size)));
+
+                f32 bounce = sinf((CLAMP(sHudEmphasisTimer[i],3.0f,3.5f)-1.0f)*M_PI*4.0f)*3.0f;
+                ui_trans_ptr(sUiidHudTrans[i])->pos[1] = 209-(20*i)+bounce;
+
+                if (sHudMarioMoveTimer == 0.0f) {
+                    sHudEmphasisTimer[i] += .05f;
+                    sHudEmphasisTimer[i] = MIN(sHudEmphasisTimer[i],3.0f);
+                } else {
+                    sHudEmphasisTimer[i] -= .05f;
+                    sHudEmphasisTimer[i] = MAX(sHudEmphasisTimer[i],0.0f);
+                }
+
+                ui_trans_ptr(sUiidHudTrans[i])->alpha = emphasis * 255.0f;
+            }
+        }
+
+        s16 starct = neo_save_collectible_count(gCurrNeoSaveFile->stars,STAR_MISSION_COUNT);
+
+        sprintf(sCoinCharBuffer, "$X%d", gMarioState->numCoins );
+        sprintf(sStarCharBuffer, "★X%d", starct );
+
+        static int oldCoins;
+        static int oldStars;
+
+        if (oldCoins != gMarioState->numCoins) {
+            ui_trans_ptr(sUiidHudTrans[0])->posLerp[0] = 22;
+            ui_trans_ptr(sUiidHudTrans[0])->pos[0] = 22;
+            sHudEmphasisTimer[0] = 3.25f;
+        }
+        
+        if (oldStars != starct) {
+            ui_trans_ptr(sUiidHudTrans[1])->posLerp[0] = 22;
+            ui_trans_ptr(sUiidHudTrans[1])->pos[0] = 22;
+            sHudEmphasisTimer[1] = 3.25f;
+        }
+        
+        oldCoins = gMarioState->numCoins;
+        oldStars = starct;
+    }
 }
 
 // Pause screen
@@ -653,15 +738,20 @@ void ui_pause_create(void) {
     ui_set_trans_color(sUiidPauseTrans,0,0,0);
     ui_object_ptr(pauseRectangle)->alpha = 100;
 
-    uiid transPauseText = ui_create_transform(sUiidPauseTrans);
-    ui_create_text(transPauseText,TEXT_PAUSE);
+    //uiid transPauseText = ui_create_transform(sUiidPauseTrans);
+    //ui_create_text(transPauseText,TEXT_PAUSE);
+
+    ui_create_text_quick(sUiidPauseTrans, NULL, "Paused...", 160, 120, PRINT_ORIGIN_CENTER);
 
     ui_set_destroy_signal(sUiidPauseTrans,&sPauseDestroySignal);
+    ui_hud_destroy();
 }
 
 void ui_pause_destroy(void) {
     ui_trans_begin_remove(sUiidPauseTrans);
     sUiidPauseTrans = UI_NONE;
+
+    ui_hud_create();
 }
 
 // Return 1 to unpause, Return 2 for exit course.
