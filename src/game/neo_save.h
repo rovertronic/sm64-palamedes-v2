@@ -23,6 +23,8 @@ enum starGroupIds {
     STAR_GROUP_COUNT
 };
 
+#define SAVE_FILE_OPTION_COUNT 2
+
 enum starTypeIds {
     STAR_TYPE_NORMAL,
 };
@@ -32,6 +34,7 @@ enum saveFlags {
 };
 
 struct NeoSaveFile { 
+    s8 options[SAVE_FILE_OPTION_COUNT];
     u32 stars[((STAR_MISSION_COUNT-1)/32)+1];
     u32 flags;
     u32 funValue;
@@ -45,6 +48,8 @@ struct NeoSaveData {
 void neo_save_collectible_obtain(u32 * flaglist, int id);
 u32 neo_save_collectible_collected(u32 * flaglist, int id);
 u32 neo_save_collectible_count(u32 * flaglist, int total);
+
+void neo_save_option_set(int option_index, int change, int max);
 
 extern struct StarMission gStarMissionList[];
 extern struct NeoSaveFile * gCurrNeoSaveFile;

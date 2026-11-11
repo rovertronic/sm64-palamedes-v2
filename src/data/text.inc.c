@@ -1,12 +1,16 @@
 #include "src/data/text_enums.h"
 
-char * sEnglishText[] = {
+char * sEnglishText[TEXT_COUNT] = {
+    [TEXT_LANGUAGE] = "%sLanguage: English%s",
+    [TEXT_ERROR] = "Missing Translation",
+
     // Hud Strings
     [TEXT_PAUSE] = "Paused...",
 
-    // Debug Strings
-    [TEXT_DEBUG_RAM] = "RAM Remaining %d*",
-    [TEXT_DEBUG_DELETED] = "@0@Deleted.",
+    [TEXT_PROGRESS] = "Progress",
+    [TEXT_SETTINGS] = "Settings",
+
+    [TEXT_WIDESCREEN] = "%sWidescreen:%s",
 
     // Test Strings
     [TEXT_TEST] = "+-/()𝐋𝐑→← they/them 23/100 Falsches üben von xylophonmusik quält jeden größeren zwerg.\n@R@😡 DAS WAR EIN BEFEHL 😡@@ \nwow... @Y@😊@@\nThe quick brown fox jumps over the lazy dog.\nOh, @R@Ryan,@@ my beautiful @G@shrine bachelor@@, who hates @R@cardio@@ and @R@women@@!@@ Guide me the way with your @B@blue boxes@@.",
@@ -23,7 +27,13 @@ char * sEnglishText[] = {
     [TEXT_MISSION_TEST] = "Test Mission",
 };
 
-char * sGermanText[] = {
-    [TEXT_TEST] = "prüfen",
-    [TEXT_TEST_2] = "Eine weitere Testzeichenfolge",
+char * sGermanText[TEXT_COUNT] = {
+    [TEXT_LANGUAGE] = "%sSprache: Deutsch%s",
+    [TEXT_ERROR] = "Fehlende Übersetzung",
+
+    [TEXT_PROGRESS] = "Fortschritt",
+    [TEXT_SETTINGS] = "Einstellungen",
+
+    [TEXT_WIDESCREEN] = "%sBreitbild:%s",
+    [TEXT_PAUSE] = "Paused...",
 };

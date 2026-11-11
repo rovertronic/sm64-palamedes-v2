@@ -10,5 +10,8 @@ char ** sLanguageTable[] = {
 };
 
 char * get_text(int textEnum) {
+    if (sLanguageTable[gLanguage][textEnum] == NULL) {
+        return sLanguageTable[gLanguage][TEXT_ERROR];
+    }
     return sLanguageTable[gLanguage][textEnum];
 }

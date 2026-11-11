@@ -32,6 +32,10 @@ u32 neo_save_collectible_count(u32 * flaglist, int total) {
     return ct;
 }
 
+void neo_save_option_set(int option_index, int change, int max) {
+    gCurrNeoSaveFile->options[option_index] = (gCurrNeoSaveFile->options[option_index] + change + max) % max;
+}
+
 struct StarMission gStarMissionList[] = {
     [STAR_MISSION_TEST] = {
         .nameText = TEXT_MISSION_TEST,

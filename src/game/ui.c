@@ -166,7 +166,6 @@ void ui_destroy_trans(uiid myId) {
     while(objId != UI_NONE) {
         uiObject * del = ui_object_ptr(objId);
         del->initialized = FALSE;
-        del->text = TEXT_DEBUG_DELETED;
         objId = del->uiObjectSibling;
     }
     self->objlist = UI_NONE;
@@ -609,7 +608,31 @@ void ui_render(void) {
     //print_text_fmt_int(20, 120, "T %d", activemat);
 }
 
+u8 sUiStickHoldTimer[4];
+
+s32 ui_get_input(int dir) {
+    if (sUiStickHoldTimer[dir] == 1 || (sUiStickHoldTimer[dir] > 20 &&  (sUiStickHoldTimer[dir] % 4 == 0 )) ) {return TRUE;}
+    return FALSE;
+}
+
 void ui_logic(void) {
+
+    for (int i = 0; i < 4; i++) {
+        sUiStickHoldTimer[i] ++;
+    }
+    if (gPlayer1Controller->rawStickX < 60) {
+        sUiStickHoldTimer[0] = 0;
+    }
+    if (gPlayer1Controller->rawStickX > -60) {
+        sUiStickHoldTimer[1] = 0;
+    }
+    if (gPlayer1Controller->rawStickY < 60) {
+        sUiStickHoldTimer[2] = 0;
+    }
+    if (gPlayer1Controller->rawStickY > -60) {
+        sUiStickHoldTimer[3] = 0;
+    }
+
     for (int i = 0; i < UI_TRANS_COUNT; i++) {
         uiTrans * self = &sUiTransList[i];
         if (self->initialized) {
@@ -732,7 +755,118 @@ void ui_hud_update(void) {
 
 // Pause screen
 
+#define MAX_TAB_COUNT 10
+
+uiid sUiPauseTabs[MAX_TAB_COUNT];
+uiid sUiPauseTabTransforms[MAX_TAB_COUNT];
+uiid sUiPauseTabIds[MAX_TAB_COUNT];
+u8 sUiPauseTabCount = 0;
+
+char sUiPauseStringBuffers[10][40];
+
+s8 sUiPauseTabIndex = 0;
+s8 sUiPauseTabIndexOld = -1;
+
+uiid sUiPauseTabContent = UI_NONE;
+uiDestroySignal sUiPauseTabContentDestroySignal = TRUE;
+
+
+s8 sUiPauseIndex2 = -1;
+
+
+u8 sUiOptionMaxList[] = {
+    2,
+    2,
+};
+
+char * ui_pause_option_start(int index) {
+    if (sUiPauseIndex2 == index) {
+        return "@Y@← ";
+    } else {
+        return "";
+    }
+}
+
+char * ui_pause_option_bool_end(int index) {
+    if (sUiPauseIndex2 == index) {
+        if (gCurrNeoSaveFile->options[index]) {
+            return " Enabled →";
+        } else {
+            return " Disabled →";
+        }
+    } else {
+        if (gCurrNeoSaveFile->options[index]) {
+            return " @G@Enabled";
+        } else {
+            return " @R@Disabled";
+        }
+    }
+}
+
+char * ui_pause_option_generic_end(int index) {
+    if (sUiPauseIndex2 == index) {
+        return " →";
+    } else {
+        return "";
+    }
+}
+
+void ui_pause_options_create() {
+    ui_create_text_quick(sUiPauseTabContent, NULL, sUiPauseStringBuffers[0], 40, 150, PRINT_ORIGIN_LEFT );
+    ui_create_text_quick(sUiPauseTabContent, NULL, sUiPauseStringBuffers[1], 40, 130, PRINT_ORIGIN_LEFT );
+}
+
+void ui_pause_options_update() {
+    if (sUiPauseIndex2 > -1) {
+        if (ui_get_input(0)) {
+            neo_save_option_set(sUiPauseIndex2,1,sUiOptionMaxList[sUiPauseIndex2]);
+        }
+        if (ui_get_input(1)) {
+            neo_save_option_set(sUiPauseIndex2,-1,sUiOptionMaxList[sUiPauseIndex2]);
+        }
+
+        if (ui_get_input(2)) {
+            sUiPauseIndex2 --;
+        }
+        if (ui_get_input(3)) {
+            sUiPauseIndex2 ++;
+        }
+
+        sUiPauseIndex2 = (sUiPauseIndex2 + SAVE_FILE_OPTION_COUNT) % SAVE_FILE_OPTION_COUNT;
+
+        if (gPlayer1Controller->buttonPressed & A_BUTTON) {
+            sUiPauseIndex2 = -1;
+        }
+    }
+
+    sprintf(sUiPauseStringBuffers[0], get_text(TEXT_WIDESCREEN), ui_pause_option_start(0), ui_pause_option_bool_end(0));
+    sprintf(sUiPauseStringBuffers[1], get_text(TEXT_LANGUAGE),   ui_pause_option_start(1), ui_pause_option_generic_end(1));
+
+    gLanguage = gCurrNeoSaveFile->options[1];
+}
+
+
+
+void ui_pause_tab_create(int text, int tab_id) {
+    sUiPauseTabTransforms[sUiPauseTabCount] = ui_create_transform(sUiidPauseTrans);
+    sUiPauseTabs[sUiPauseTabCount] = ui_create_btn(sUiPauseTabTransforms[sUiPauseTabCount], text);
+    ui_object_ptr(sUiPauseTabs[sUiPauseTabCount])->printOrigin = PRINT_ORIGIN_CENTER;
+    sUiPauseTabIds[sUiPauseTabCount] = tab_id;
+    sUiPauseTabCount++;
+}
+
+void ui_pause_tab_content_create() {
+    sUiPauseTabContent = ui_create_transform(sUiidPauseTrans);
+    ui_set_destroy_signal(sUiPauseTabContent, &sUiPauseTabContentDestroySignal);
+
+    ui_pause_options_create();
+    ui_pause_options_update();
+}
+
 void ui_pause_create(void) {
+    sUiPauseTabIndex = 0;
+    sUiPauseTabIndexOld = 0;
+
     sUiidPauseTrans = ui_create_transform(gUiidScreen);
     uiid pauseRectangle = ui_create_rectangle(sUiidPauseTrans,0,240,320,0);
     ui_set_trans_color(sUiidPauseTrans,0,0,0);
@@ -741,10 +875,28 @@ void ui_pause_create(void) {
     //uiid transPauseText = ui_create_transform(sUiidPauseTrans);
     //ui_create_text(transPauseText,TEXT_PAUSE);
 
-    ui_create_text_quick(sUiidPauseTrans, NULL, "Paused...", 160, 120, PRINT_ORIGIN_CENTER);
+    ui_create_text_quick(sUiidPauseTrans, NULL, "Paused...", 160, 210, PRINT_ORIGIN_CENTER);
 
     ui_set_destroy_signal(sUiidPauseTrans,&sPauseDestroySignal);
     ui_hud_destroy();
+
+    sUiPauseTabCount = 0;
+    ui_pause_tab_create(TEXT_PROGRESS, 0);
+    ui_pause_tab_create(TEXT_SETTINGS, 1);
+
+    int xtotalhalf = ((sUiPauseTabCount-1) * 80) / 2;
+    for (int i = 0; i < sUiPauseTabCount; i++) {
+        ui_set_trans_xy( sUiPauseTabTransforms[i], 160 + (i * 80) - xtotalhalf, 180 );
+        //xoffset += ui_object_ptr(sUiPauseTabs[i])->textXsize;
+
+        //int x, y;
+        //utf8_size( get_text( ui_object_ptr(sUiPauseTabs[i])->text ), &x, &y );
+        //xoffset += x;
+
+        ui_trans_ptr(sUiPauseTabTransforms[i])->color[0] = 50;
+        ui_trans_ptr(sUiPauseTabTransforms[i])->color[1] = 50;
+        ui_trans_ptr(sUiPauseTabTransforms[i])->color[2] = 50;
+    }
 }
 
 void ui_pause_destroy(void) {
@@ -760,8 +912,47 @@ s32 ui_pause_logic(void) {
         return 1;
     }
     if (ui_is_not_transitioning(sUiidPauseTrans)) {
-        if (gPlayer1Controller->buttonPressed & START_BUTTON) {
-            ui_pause_destroy();
+
+        if (sUiPauseIndex2 == -1) {
+            if (ui_get_input(0)) {
+                sUiPauseTabIndex++;
+            }
+            if (ui_get_input(1)) {
+                sUiPauseTabIndex--;
+            }
+        }
+        
+        sUiPauseTabIndex = ((sUiPauseTabCount + sUiPauseTabIndex) % sUiPauseTabCount);
+
+        for (int i = 0; i < sUiPauseTabCount; i++) {
+            if (i == sUiPauseTabIndex) {
+                ui_trans_ptr(sUiPauseTabTransforms[i])->color[0] = 255;
+            } else {
+                ui_trans_ptr(sUiPauseTabTransforms[i])->color[0] = 50;
+            }
+        }
+
+        if ((sUiPauseTabIndexOld != sUiPauseTabIndex) && (ui_is_not_transitioning(sUiPauseTabContent))) {
+            sUiPauseTabIndexOld = sUiPauseTabIndex;
+            ui_trans_begin_remove(sUiPauseTabContent);
+        }
+
+        if (sUiPauseTabContentDestroySignal) {
+            ui_pause_tab_content_create();
+        }
+
+        if (sUiPauseIndex2 == -1) {
+            if (gPlayer1Controller->buttonPressed & A_BUTTON) {
+                sUiPauseIndex2 = 0;
+            }
+
+            if (gPlayer1Controller->buttonPressed & START_BUTTON) {
+                ui_pause_destroy();
+            }
+        } else {
+            if (!sUiPauseTabContentDestroySignal) {
+                ui_pause_options_update();
+            }
         }
     }
     return 0;

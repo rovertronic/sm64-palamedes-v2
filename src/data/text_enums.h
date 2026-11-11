@@ -2,12 +2,15 @@
 #define TEXT_ENUMS_H
 
 enum {
+    TEXT_ERROR,
+
     // Hud Strings
     TEXT_PAUSE,
+    TEXT_PROGRESS,
+    TEXT_SETTINGS,
 
-    // Debug Strings
-    TEXT_DEBUG_RAM,
-    TEXT_DEBUG_DELETED,
+    TEXT_WIDESCREEN,
+    TEXT_LANGUAGE,
 
     // Test Strings
     TEXT_TEST,

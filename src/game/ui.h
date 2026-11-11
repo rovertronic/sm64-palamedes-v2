@@ -50,6 +50,8 @@ void ui_hud_create(void);
 void ui_hud_update(void);
 void ui_hud_destroy(void);
 
+s32 ui_get_input(int dir);
+
 #define UI_NONE -1
 
 #define UI_OBJECT_COUNT 30

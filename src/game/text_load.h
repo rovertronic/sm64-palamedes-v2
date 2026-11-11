@@ -11,4 +11,6 @@ enum language {
 
 char * get_text(int textEnum);
 
+extern int gLanguage;
+
 #endif
