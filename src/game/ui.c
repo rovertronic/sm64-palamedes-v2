@@ -14,6 +14,8 @@
 #include "geo_misc.h"
 #include "neo_save.h"
 #include "segment2.h"
+#include "main.h"
+#include <string.h>
 
 const Gfx dl_ui_draw_text_bg_box[] = {
     gsDPPipeSync(),
@@ -87,6 +89,50 @@ static void ui_free(void * data) {
     for (u32 i = start; i < start + blocks; i++) {
         sUiMemoryBlocks[i] = 0;
     }
+}
+
+static void * ui_realloc(void * data, u32 size) {
+    if (data == NULL) {
+        return ui_alloc(size);
+    }
+    if (size == 0) {
+        ui_free(data);
+        return NULL;
+    }
+    if (size > sizeof(sUiMemoryPool)) {
+        return NULL;
+    }
+
+    u32 start = ((u8 *) data - sUiMemoryPool) / UI_MEMORY_BLOCK_SIZE;
+    u32 oldBlocks = sUiMemoryBlocks[start];
+    u32 blocks = (size + UI_MEMORY_BLOCK_SIZE - 1) / UI_MEMORY_BLOCK_SIZE;
+    if (blocks <= oldBlocks) {
+        sUiMemoryBlocks[start] = blocks;
+        for (u32 i = start + blocks; i < start + oldBlocks; i++) {
+            sUiMemoryBlocks[i] = 0;
+        }
+        return data;
+    }
+
+    u32 end = start + oldBlocks;
+    while (end < start + blocks && end < UI_MEMORY_BLOCK_COUNT && sUiMemoryBlocks[end] == 0) {
+        end++;
+    }
+    if (end == start + blocks) {
+        for (u32 i = start + oldBlocks; i < end; i++) {
+            sUiMemoryBlocks[i] = 0xFF;
+        }
+        sUiMemoryBlocks[start] = blocks;
+        return data;
+    }
+
+    void * resized = ui_alloc(size);
+    if (resized == NULL) {
+        return NULL;
+    }
+    memcpy(resized, data, oldBlocks * UI_MEMORY_BLOCK_SIZE);
+    ui_free(data);
+    return resized;
 }
 
 static uiid ui_create_object(s8 parentId, u8 type, u32 dataSize) {
@@ -175,6 +221,13 @@ static void ui_destroy_object(uiid myId) {
         sUiObjectList[self->next].prev = self->prev;
     }
 
+    if (self->type == UI_CLASS_TEXT_RAW) {
+        uiTextRawData * data = (uiTextRawData *) self->data;
+        if (data->buffer != NULL) {
+            ui_free(*data->buffer);
+            *data->buffer = NULL;
+        }
+    }
     ui_free(self->data);
     self->data = NULL;
     self->initialized = FALSE;
@@ -251,6 +304,24 @@ uiid ui_create_text_raw(s8 parentId, char * text) {
     return myId;
 }
 
+// The pointer slot must outlive the object. Resizing updates that slot, and
+// destroying the object frees the buffer and clears the slot.
+static uiid ui_create_text_buffer(s8 parentId, char ** buffer) {
+    char * text = ui_alloc(1);
+    if (text == NULL) {
+        return UI_NONE;
+    }
+    uiid myId = ui_create_text_raw(parentId, NULL);
+    if (myId == UI_NONE) {
+        ui_free(text);
+        return UI_NONE;
+    }
+    *buffer = text;
+    uiTextRawData * data = (uiTextRawData *) ui_object_ptr(myId)->data;
+    data->buffer = buffer;
+    return myId;
+}
+
 uiid ui_create_slice(s8 parentId, nineSliceParams * p, s16 x1, s16 y1, s16 x2, s16 y2) {
     s8 myId = ui_create_object(parentId, UI_CLASS_SLICE, sizeof(uiSliceData));
     if (myId == UI_NONE) {
@@ -301,24 +372,16 @@ uiid ui_create_btn(s8 parentId, s16 textId) {
     return myId;
 }
 
-uiid ui_create_text_quick(s8 parentId, s8 * textObject, char * text, s16 x, s16 y, u8 print_origin) {
-    uiid textTransform = ui_create_transform(parentId);
-    if (textTransform == UI_NONE) {
-        return UI_NONE;
-    }
-    ui_set_trans_xy(textTransform,x,y);
+uiid ui_create_text_quick(s8 parentId, char * text, s16 x, s16 y, u8 print_origin) {
+    uiid textId = ui_create_text_raw(parentId, text);
+    ui_set_trans_xy(textId,x,y);
 
-    uiid textId = ui_create_text_raw(textTransform, text);
     if (textId == UI_NONE) {
-        ui_destroy_object(textTransform);
         return UI_NONE;
     }
     ((uiTextRawData *) ui_object_ptr(textId)->data)->printOrigin = print_origin;
 
-    if (textObject != NULL) {
-        *textObject = textId;
-    }
-    return textTransform;
+    return textId;
 }
 
 void ui_trans_begin_remove(s8 myId) {
@@ -508,7 +571,7 @@ void ui_process_ui_object(uiObject * self) {
             utf8_init_print();
             utf8_set_font(data->printFont);
 
-            str = data->ptr;
+            str = data->buffer != NULL ? *data->buffer : data->ptr;
 
             utf8_size(str,&x,&y);
             data->textXsize = x;
@@ -768,25 +831,24 @@ void ui_hud_update(void) {
 
 #define MAX_TAB_COUNT 10
 
-uiid sUiPauseTabs[MAX_TAB_COUNT];
-uiid sUiPauseTabTransforms[MAX_TAB_COUNT];
-uiid sUiPauseTabIds[MAX_TAB_COUNT];
+uiid sUiidPauseTabs[MAX_TAB_COUNT];
+s8 sUiPauseTabIds[MAX_TAB_COUNT];
 u8 sUiPauseTabCount = 0;
 
 uiid sUiidPauseCursor = UI_NONE;
 
-char sUiPauseStringBuffers[10][40];
+char * sUiPauseStringBuffers[SAVE_FILE_OPTION_COUNT];
 
 s8 sUiPauseTabIndex = 0;
 s8 sUiPauseTabIndexOld = -1;
 
-uiid sUiPauseTabContent = UI_NONE;
+uiid sUiidPauseTabContent = UI_NONE;
 uiDestroySignal sUiPauseTabContentDestroySignal = TRUE;
 
 
 s8 sUiPauseIndex2 = -1;
 
-
+// OPTIONS
 u8 sUiOptionMaxList[] = {
     2,
     2,
@@ -825,8 +887,32 @@ char * ui_pause_option_generic_end(int index) {
 }
 
 void ui_pause_options_create() {
-    ui_create_text_quick(sUiPauseTabContent, NULL, sUiPauseStringBuffers[0], 40, 150, PRINT_ORIGIN_LEFT );
-    ui_create_text_quick(sUiPauseTabContent, NULL, sUiPauseStringBuffers[1], 40, 130, PRINT_ORIGIN_LEFT );
+    for (int i = 0; i < SAVE_FILE_OPTION_COUNT; i++) {
+        uiid textId = ui_create_text_buffer(sUiidPauseTabContent, &sUiPauseStringBuffers[i]);
+        if (textId == UI_NONE) {
+            continue;
+        }
+        uiObject * text = ui_object_ptr(textId);
+        text->alpha = 0;
+        text->transition = 0.0f;
+        text->transitionFunction[0] = ui_trans_transition_fade_in;
+        text->transitionFunction[1] = ui_trans_transition_fade_out;
+        ui_set_trans_xy(textId, 40, 150 - i * 20);
+        ((uiTextRawData *) ui_object_ptr(textId)->data)->printOrigin = PRINT_ORIGIN_LEFT;
+    }
+}
+
+static void ui_pause_option_format(int index, const char * format, const char * start, const char * end) {
+    if (sUiPauseStringBuffers[index] == NULL) {
+        return;
+    }
+    u32 size = strlen(format) + strlen(start) + strlen(end) + 1;
+    char * buffer = ui_realloc(sUiPauseStringBuffers[index], size);
+    if (buffer == NULL) {
+        return;
+    }
+    sUiPauseStringBuffers[index] = buffer;
+    sprintf(buffer, format, start, end);
 }
 
 void ui_pause_options_update() {
@@ -852,28 +938,49 @@ void ui_pause_options_update() {
         }
     }
 
-    sprintf(sUiPauseStringBuffers[0], get_text(TEXT_WIDESCREEN), ui_pause_option_start(0), ui_pause_option_bool_end(0));
-    sprintf(sUiPauseStringBuffers[1], get_text(TEXT_LANGUAGE),   ui_pause_option_start(1), ui_pause_option_generic_end(1));
+    ui_pause_option_format(0, get_text(TEXT_WIDESCREEN), ui_pause_option_start(0), ui_pause_option_bool_end(0));
+    ui_pause_option_format(1, get_text(TEXT_LANGUAGE),   ui_pause_option_start(1), ui_pause_option_generic_end(1));
 
+    // Apply
     gLanguage = gCurrNeoSaveFile->options[1];
+    gConfig.widescreen = gCurrNeoSaveFile->options[0];
+}
+
+void ui_pause_progression_create(void) {
+    uiid level_name = ui_create_text(sUiidPauseTabContent, TEXT_STAR_GROUP_0);
+    ui_set_trans_xy(level_name, 40,140);
+    uiid level_stars = ui_create_text_quick(sUiidPauseTabContent, "★★@0@★★@@★★★", 40, 120, PRINT_ORIGIN_LEFT);
+    ((uiTextRawData *) ui_object_ptr(level_stars)->data)->printFont = FONT_PINBALL;
+}
+
+void ui_pause_progression_update(void) {
+
 }
 
 
+void (*sUiPauseTabFunctions[])(void) = {
+    /* Tab 0 */ ui_pause_progression_create, ui_pause_progression_update,
+    /* Tab 1 */ ui_pause_options_create, ui_pause_options_update,
+};
 
 void ui_pause_tab_create(int text, int tab_id) {
-    sUiPauseTabTransforms[sUiPauseTabCount] = ui_create_transform(sUiidPauseTrans);
-    sUiPauseTabs[sUiPauseTabCount] = ui_create_btn(sUiPauseTabTransforms[sUiPauseTabCount], text);
-    ((uiButtonData *) ui_object_ptr(sUiPauseTabs[sUiPauseTabCount])->data)->printOrigin = PRINT_ORIGIN_CENTER;
+    sUiidPauseTabs[sUiPauseTabCount] = ui_create_btn(sUiidPauseTrans, text);
+    uiObject * tab = ui_object_ptr(sUiidPauseTabs[sUiPauseTabCount]);
+    tab->alpha = 0;
+    tab->transition = 0.0f;
+    tab->transitionFunction[0] = ui_trans_transition_fade_in;
+    tab->transitionFunction[1] = ui_trans_transition_fade_out;
+    ((uiButtonData *) ui_object_ptr(sUiidPauseTabs[sUiPauseTabCount])->data)->printOrigin = PRINT_ORIGIN_CENTER;
     sUiPauseTabIds[sUiPauseTabCount] = tab_id;
     sUiPauseTabCount++;
 }
 
 void ui_pause_tab_content_create() {
-    sUiPauseTabContent = ui_create_transform(sUiidPauseTrans);
-    ui_set_destroy_signal(sUiPauseTabContent, &sUiPauseTabContentDestroySignal);
+    sUiidPauseTabContent = ui_create_transform(sUiidPauseTrans);
+    ui_set_destroy_signal(sUiidPauseTabContent, &sUiPauseTabContentDestroySignal);
 
-    ui_pause_options_create();
-    ui_pause_options_update();
+    sUiPauseTabFunctions[(sUiPauseTabIndex * 2)+0]();
+    sUiPauseTabFunctions[(sUiPauseTabIndex * 2)+1]();
 }
 
 void ui_pause_create(void) {
@@ -890,7 +997,7 @@ void ui_pause_create(void) {
     //uiid transPauseText = ui_create_transform(sUiidPauseTrans);
     //ui_create_text(transPauseText,TEXT_PAUSE);
 
-    ui_create_text_quick(sUiidPauseTrans, NULL, "Paused...", 160, 210, PRINT_ORIGIN_CENTER);
+    ui_create_text_quick(sUiidPauseTrans, "Paused...", 160, 210, PRINT_ORIGIN_CENTER);
 
     ui_set_destroy_signal(sUiidPauseTrans,&sPauseDestroySignal);
     ui_hud_destroy();
@@ -901,14 +1008,14 @@ void ui_pause_create(void) {
 
     int xtotalhalf = ((sUiPauseTabCount-1) * 80) / 2;
     for (int i = 0; i < sUiPauseTabCount; i++) {
-        ui_set_trans_xy( sUiPauseTabTransforms[i], 160 + (i * 80) - xtotalhalf, 180 );
-        //xoffset += ((uiButtonData *) ui_object_ptr(sUiPauseTabs[i])->data)->textXsize;
+        ui_set_trans_xy( sUiidPauseTabs[i], 160 + (i * 80) - xtotalhalf, 180 );
+        //xoffset += ((uiButtonData *) ui_object_ptr(sUiidPauseTabs[i])->data)->textXsize;
 
         //int x, y;
-        //utf8_size( get_text( ((uiButtonData *) ui_object_ptr(sUiPauseTabs[i])->data)->text ), &x, &y );
+        //utf8_size( get_text( ((uiButtonData *) ui_object_ptr(sUiidPauseTabs[i])->data)->text ), &x, &y );
         //xoffset += x;
 
-        ui_set_object_color(sUiPauseTabs[i],50,50,50);
+        ui_set_object_color(sUiidPauseTabs[i],50,50,50);
     }
 
     sUiidPauseCursor = ui_create_image(sUiidPauseTrans, pin_rgba16);
@@ -941,15 +1048,15 @@ s32 ui_pause_logic(void) {
 
         for (int i = 0; i < sUiPauseTabCount; i++) {
             if (i == sUiPauseTabIndex) {
-                ui_object_ptr(sUiPauseTabs[i])->color[0] = 255;
+                ui_object_ptr(sUiidPauseTabs[i])->color[0] = 255;
             } else {
-                ui_object_ptr(sUiPauseTabs[i])->color[0] = 50;
+                ui_object_ptr(sUiidPauseTabs[i])->color[0] = 50;
             }
         }
 
-        if ((sUiPauseTabIndexOld != sUiPauseTabIndex) && (ui_is_not_transitioning(sUiPauseTabContent))) {
+        if ((sUiPauseTabIndexOld != sUiPauseTabIndex) && (ui_is_not_transitioning(sUiidPauseTabContent))) {
             sUiPauseTabIndexOld = sUiPauseTabIndex;
-            ui_trans_begin_remove(sUiPauseTabContent);
+            ui_trans_begin_remove(sUiidPauseTabContent);
         }
 
         if (sUiPauseTabContentDestroySignal) {
@@ -966,7 +1073,7 @@ s32 ui_pause_logic(void) {
             }
         } else {
             if (!sUiPauseTabContentDestroySignal) {
-                ui_pause_options_update();
+                sUiPauseTabFunctions[(sUiPauseTabIndex * 2)+1]();
             }
         }
     }

@@ -14,7 +14,7 @@ uiid ui_create_slice(s8 parentId, nineSliceParams * p, s16 x1, s16 y1, s16 x2, s
 uiid ui_create_btn(s8 parentId, s16 textId);
 uiid ui_create_rectangle(s8 parentId, s16 x1, s16 y1, s16 x2, s16 y2);
 
-uiid ui_create_text_quick(s8 parentId, s8 * textObject, char * text, s16 x, s16 y, u8 print_origin);
+uiid ui_create_text_quick(s8 parentId, char * text, s16 x, s16 y, u8 print_origin);
 
 s32 ui_is_not_transitioning(uiid myId);
 void ui_set_destroy_signal(uiid myId, uiDestroySignal * destroySignal);
@@ -91,6 +91,7 @@ typedef struct {
 
 typedef struct {
     char * ptr;
+    char ** buffer;
     u8 textXsize;
     u8 printParam;
     u8 printOrigin;

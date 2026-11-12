@@ -25,6 +25,9 @@ char * sEnglishText[TEXT_COUNT] = {
 
     // Mission Names & Hints
     [TEXT_MISSION_TEST] = "Test Mission",
+
+    // Star Groups (For organization in Star Display)
+    [TEXT_STAR_GROUP_0] = "Course 1",
 };
 
 char * sGermanText[TEXT_COUNT] = {

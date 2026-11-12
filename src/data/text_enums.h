@@ -26,6 +26,8 @@ enum {
     //Missions
     TEXT_MISSION_TEST,
 
+    TEXT_STAR_GROUP_0,
+
     TEXT_COUNT,
 };
 
