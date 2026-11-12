@@ -89,7 +89,7 @@ Lights1 sLightInfo = gdSPDefLights1(
 );
 
 void day_night_set_light(void) {
-    Gfx * dl = alloc_display_list(sizeof(Gfx) * 2);
+    Gfx * dl = alloc_display_list(sizeof(Gfx) * 4);
     Gfx * dlh = dl;
 
     Lights1* curLight = (Lights1*)alloc_display_list(sizeof(Lights1));
@@ -134,7 +134,7 @@ Gfx *geo_day_night_light(s32 callContext, UNUSED struct GraphNode *node, UNUSED 
 #include "src/engine/math_util.h"
 
 void day_night_restore_object_light(void) {
-    Gfx * dl = alloc_display_list(sizeof(Gfx) * 2);
+    Gfx * dl = alloc_display_list(sizeof(Gfx) * 4);
     Gfx * dlh = dl;
 
     Lights1* curLight = (Lights1*)alloc_display_list(sizeof(Lights1));

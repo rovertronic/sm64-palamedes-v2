@@ -40,6 +40,7 @@ Gfx dl_shadow_special_tri[] = {
 #include "ingame_menu.h"
 #include "actors/group0.h"
 #include "level_update.h"
+#include "object_list_processor.h"
 #include "config.h"
 #include "config/config_world.h"
 
@@ -70,6 +71,9 @@ Vp gTextureViewport = { {
 
 #define SHADOW_VIEWPORT_SCALE 200.0f/WORLD_SCALE
 void special_shadow_generate(void) {
+    if (gMarioObject == NULL) {
+        return;
+    }
 
     Mtx *matrix = (Mtx *) alloc_display_list(sizeof(Mtx));
     if (matrix == NULL) {
