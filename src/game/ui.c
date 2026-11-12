@@ -897,7 +897,7 @@ void ui_pause_options_create() {
         text->transition = 0.0f;
         text->transitionFunction[0] = ui_trans_transition_fade_in;
         text->transitionFunction[1] = ui_trans_transition_fade_out;
-        ui_set_trans_xy(textId, 40, 150 - i * 20);
+        ui_set_trans_xy(textId, 40, 165 - i * 20);
         ((uiTextRawData *) ui_object_ptr(textId)->data)->printOrigin = PRINT_ORIGIN_LEFT;
     }
 }
@@ -948,8 +948,8 @@ void ui_pause_options_update() {
 
 void ui_pause_progression_create(void) {
     uiid level_name = ui_create_text(sUiidPauseTabContent, TEXT_STAR_GROUP_0);
-    ui_set_trans_xy(level_name, 40,140);
-    uiid level_stars = ui_create_text_quick(sUiidPauseTabContent, "★★@0@★★@@★★★", 40, 120, PRINT_ORIGIN_LEFT);
+    ui_set_trans_xy(level_name, 40,155);
+    uiid level_stars = ui_create_text_quick(sUiidPauseTabContent, "★★@0@★★@@★★★", 40, 135, PRINT_ORIGIN_LEFT);
     ((uiTextRawData *) ui_object_ptr(level_stars)->data)->printFont = FONT_PINBALL;
 }
 
@@ -997,7 +997,7 @@ void ui_pause_create(void) {
     //uiid transPauseText = ui_create_transform(sUiidPauseTrans);
     //ui_create_text(transPauseText,TEXT_PAUSE);
 
-    ui_create_text_quick(sUiidPauseTrans, "Paused...", 160, 210, PRINT_ORIGIN_CENTER);
+    //ui_create_text_quick(sUiidPauseTrans, "Paused...", 160, 210, PRINT_ORIGIN_CENTER);
 
     ui_set_destroy_signal(sUiidPauseTrans,&sPauseDestroySignal);
     ui_hud_destroy();
@@ -1008,7 +1008,7 @@ void ui_pause_create(void) {
 
     int xtotalhalf = ((sUiPauseTabCount-1) * 80) / 2;
     for (int i = 0; i < sUiPauseTabCount; i++) {
-        ui_set_trans_xy( sUiidPauseTabs[i], 160 + (i * 80) - xtotalhalf, 180 );
+        ui_set_trans_xy( sUiidPauseTabs[i], 160 + (i * 80) - xtotalhalf, 200 );
         //xoffset += ((uiButtonData *) ui_object_ptr(sUiidPauseTabs[i])->data)->textXsize;
 
         //int x, y;
@@ -1049,8 +1049,10 @@ s32 ui_pause_logic(void) {
         for (int i = 0; i < sUiPauseTabCount; i++) {
             if (i == sUiPauseTabIndex) {
                 ui_object_ptr(sUiidPauseTabs[i])->color[0] = 255;
+                ui_object_ptr(sUiidPauseTabs[i])->pos[1] = approach_f32_asymptotic(ui_object_ptr(sUiidPauseTabs[i])->pos[1], 205, .1f);
             } else {
                 ui_object_ptr(sUiidPauseTabs[i])->color[0] = 50;
+                ui_object_ptr(sUiidPauseTabs[i])->pos[1] = approach_f32_asymptotic(ui_object_ptr(sUiidPauseTabs[i])->pos[1], 200, .1f);
             }
         }
 
