@@ -119,7 +119,7 @@ void event_set_dialog(int callContext) {
 
             u8 first = TRUE;
             if (sUiidDialogTransform != UI_NONE) {
-                ui_object_ptr(sUiidDialogSlice)->ptr = &gNotepadRipSliceParams;
+                ((uiSliceData *) ui_object_ptr(sUiidDialogSlice)->data)->ptr = &gNotepadRipSliceParams;
                 ui_trans_begin_remove(sUiidDialogTransform);
                 ui_object_ptr(sUiidDialogTransform)->layer = 1;
                 first = FALSE;
@@ -129,7 +129,7 @@ void event_set_dialog(int callContext) {
             ui_set_trans_xy(sUiidDialogTransform, 40, 62);
             sUiidDialogSlice = ui_create_slice(sUiidDialogTransform,&gNotepadSliceParams,-10,27,247,-39);
             sUiidDialogText = ui_create_text(sUiidDialogTransform,event_arg_int(0));
-            ui_object_ptr(sUiidDialogText)->x2 = 240;
+            ((uiTextData *) ui_object_ptr(sUiidDialogText)->data)->x2 = 240;
             if (!first) {
                 ui_set_transition_instant(sUiidDialogTransform);
             }
@@ -139,8 +139,8 @@ void event_set_dialog(int callContext) {
                 sUiidDialogOptionTransform[i] = ui_create_transform(gUiidScreen);
                 ui_set_trans_xy(sUiidDialogOptionTransform[i], 300, 200-(i*50));
                 uiid btn = ui_create_btn(sUiidDialogOptionTransform[i], sEventDialogOptionArray[i].textId);
-                ui_object_ptr(btn)->printOrigin = PRINT_ORIGIN_RIGHT;
-                ui_set_trans_color(sUiidDialogOptionTransform[i],stickyNoteColors[i][0],stickyNoteColors[i][1],stickyNoteColors[i][2]);
+                ((uiButtonData *) ui_object_ptr(btn)->data)->printOrigin = PRINT_ORIGIN_RIGHT;
+                ui_set_object_color(sUiidDialogOptionTransform[i],stickyNoteColors[i][0],stickyNoteColors[i][1],stickyNoteColors[i][2]);
             }
             break;
         case EVENT_CALL_CONTEXT_HALTED:
@@ -220,11 +220,12 @@ void event_absolute_cinema(UNUSED int callContext) {
     if (sUiidCinemaTrans[0] == UI_NONE) {
         sUiidCinemaTrans[0] = ui_create_transform(gUiidScreen);
         sUiidCinemaTrans[1] = ui_create_transform(gUiidScreen);
-        ui_set_trans_color(sUiidCinemaTrans[0],0,0,0);
-        ui_set_trans_color(sUiidCinemaTrans[1],0,0,0);
 
-        ui_create_rectangle(sUiidCinemaTrans[0],-142,56,320,0);
-        ui_create_rectangle(sUiidCinemaTrans[1],-142,240,320,240-56);
+        uiid r1 = ui_create_rectangle(sUiidCinemaTrans[0],-142,56,320,0);
+        uiid r2 = ui_create_rectangle(sUiidCinemaTrans[1],-142,240,320,240-56);
+
+        ui_set_object_color(r1,0,0,0);
+        ui_set_object_color(r2,0,0,0);
 
         Vec3f start = {0,-56,0};
         Vec3f end = {0,0,0};

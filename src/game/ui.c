@@ -13,6 +13,7 @@
 #include "level_update.h"
 #include "geo_misc.h"
 #include "neo_save.h"
+#include "segment2.h"
 
 const Gfx dl_ui_draw_text_bg_box[] = {
     gsDPPipeSync(),
@@ -48,7 +49,47 @@ void ui_mtx_pop(void) {
     sUiMatStackIndex--;
 }
 
-static uiid ui_create_object(s8 parentId) {
+#define UI_MEMORY_BLOCK_SIZE 8
+#define UI_MEMORY_BLOCK_COUNT (1000 / UI_MEMORY_BLOCK_SIZE)
+static u8 sUiMemoryPool[1000] ALIGNED8;
+static u8 sUiMemoryBlocks[UI_MEMORY_BLOCK_COUNT];
+
+static void * ui_alloc(u32 size) {
+    if (size == 0 || size > sizeof(sUiMemoryPool)) {
+        return NULL;
+    }
+    u32 blocks = (size + UI_MEMORY_BLOCK_SIZE - 1) / UI_MEMORY_BLOCK_SIZE;
+    u32 run = 0;
+    for (u32 i = 0; i < UI_MEMORY_BLOCK_COUNT; i++) {
+        run = sUiMemoryBlocks[i] ? 0 : run + 1;
+        if (run == blocks) {
+            u32 start = i + 1 - blocks;
+            sUiMemoryBlocks[start] = blocks;
+            for (u32 j = start + 1; j <= i; j++) {
+                sUiMemoryBlocks[j] = 0xFF;
+            }
+            u8 * data = &sUiMemoryPool[start * UI_MEMORY_BLOCK_SIZE];
+            for (u32 j = 0; j < blocks * UI_MEMORY_BLOCK_SIZE; j++) {
+                data[j] = 0;
+            }
+            return data;
+        }
+    }
+    return NULL;
+}
+
+static void ui_free(void * data) {
+    if (data == NULL) {
+        return;
+    }
+    u32 start = ((u8 *) data - sUiMemoryPool) / UI_MEMORY_BLOCK_SIZE;
+    u32 blocks = sUiMemoryBlocks[start];
+    for (u32 i = start; i < start + blocks; i++) {
+        sUiMemoryBlocks[i] = 0;
+    }
+}
+
+static uiid ui_create_object(s8 parentId, u8 type, u32 dataSize) {
     uiid myId = 0;
     while (myId < UI_OBJECT_COUNT && sUiObjectList[myId].initialized) {
         myId++;
@@ -57,16 +98,21 @@ static uiid ui_create_object(s8 parentId) {
         return UI_NONE;
     }
 
+    void * data = ui_alloc(dataSize);
+    if (data == NULL) {
+        return UI_NONE;
+    }
+
     uiObject * self = &sUiObjectList[myId];
     *self = (uiObject) {0};
     self->initialized = TRUE;
-    self->type = UI_CLASS_TRANSFORM;
+    self->type = type;
+    self->data = data;
     self->parent = parentId;
     self->base = (parentId == UI_NONE);
     self->childlist = UI_NONE;
     self->next = UI_NONE;
     self->prev = UI_NONE;
-    self->printOrigin = PRINT_ORIGIN_LEFT;
     self->alpha = 255;
     self->transition = 1.0f;
     for (int i = 0; i < 3; i++) {
@@ -90,7 +136,7 @@ static uiid ui_create_object(s8 parentId) {
 }
 
 uiid ui_create_transform(s8 parentId) {
-    uiid myId = ui_create_object(parentId);
+    uiid myId = ui_create_object(parentId, UI_CLASS_TRANSFORM, sizeof(uiTransformData));
     if (myId == UI_NONE) {
         return UI_NONE;
     }
@@ -129,6 +175,8 @@ static void ui_destroy_object(uiid myId) {
         sUiObjectList[self->next].prev = self->prev;
     }
 
+    ui_free(self->data);
+    self->data = NULL;
     self->initialized = FALSE;
     self->getout = FALSE;
     self->parent = UI_NONE;
@@ -161,82 +209,94 @@ f32 ui_trans_get_parents_alpha(uiid transParent) {
     }
 }
 
+uiid ui_create_image(s8 parentId, u8 * texture) {
+    s8 myId = ui_create_object(parentId, UI_CLASS_IMAGE, sizeof(uiImageData));
+    if (myId == UI_NONE) {
+        return UI_NONE;
+    }
+    uiObject * self = &sUiObjectList[myId];
+    uiImageData * data = (uiImageData *) self->data;
+
+    data->texture = texture;
+
+    return myId;
+}
+
 uiid ui_create_text(s8 parentId, s16 textId) {
-    s8 myId = ui_create_object(parentId);
+    s8 myId = ui_create_object(parentId, UI_CLASS_TEXT, sizeof(uiTextData));
     if (myId == UI_NONE) {
         return UI_NONE;
     }
     uiObject * self = &sUiObjectList[myId];
 
-    self->type = UI_CLASS_TEXT;
-    self->text = textId;
-    self->x2 = 0;
-    self->printFont = FONT_SM64DS;
+    uiTextData * data = (uiTextData *) self->data;
+    data->text = textId;
+    data->x2 = 0;
+    data->printFont = FONT_SM64DS;
 
     return myId;
 }
 
 uiid ui_create_text_raw(s8 parentId, char * text) {
-    s8 myId = ui_create_object(parentId);
+    s8 myId = ui_create_object(parentId, UI_CLASS_TEXT_RAW, sizeof(uiTextRawData));
     if (myId == UI_NONE) {
         return UI_NONE;
     }
     uiObject * self = &sUiObjectList[myId];
 
-    self->type = UI_CLASS_TEXT_RAW;
-    self->x2 = 0;
-    self->printFont = FONT_SM64DS;
-    self->ptr = text;
+    uiTextRawData * data = (uiTextRawData *) self->data;
+    data->printFont = FONT_SM64DS;
+    data->ptr = text;
 
     return myId;
 }
 
 uiid ui_create_slice(s8 parentId, nineSliceParams * p, s16 x1, s16 y1, s16 x2, s16 y2) {
-    s8 myId = ui_create_object(parentId);
+    s8 myId = ui_create_object(parentId, UI_CLASS_SLICE, sizeof(uiSliceData));
     if (myId == UI_NONE) {
         return UI_NONE;
     }
     uiObject * self = &sUiObjectList[myId];
 
-    self->type = UI_CLASS_SLICE;
+    uiSliceData * data = (uiSliceData *) self->data;
     
-    self->x1 = x1;
-    self->y1 = y1;
-    self->x2 = x2;
-    self->y2 = y2;
+    data->x1 = x1;
+    data->y1 = y1;
+    data->x2 = x2;
+    data->y2 = y2;
 
-    self->ptr = p;
+    data->ptr = p;
 
     return myId;
 }
 
 uiid ui_create_rectangle(s8 parentId, s16 x1, s16 y1, s16 x2, s16 y2) {
-    s8 myId = ui_create_object(parentId);
+    s8 myId = ui_create_object(parentId, UI_CLASS_BOX, sizeof(uiBoxData));
     if (myId == UI_NONE) {
         return UI_NONE;
     }
     uiObject * self = &sUiObjectList[myId];
 
-    self->type = UI_CLASS_BOX;
+    uiBoxData * data = (uiBoxData *) self->data;
     
-    self->x1 = x1;
-    self->y1 = y1;
-    self->x2 = x2;
-    self->y2 = y2;
+    data->x1 = x1;
+    data->y1 = y1;
+    data->x2 = x2;
+    data->y2 = y2;
 
     return myId;
 }
 
 uiid ui_create_btn(s8 parentId, s16 textId) {
-    s8 myId = ui_create_object(parentId);
+    s8 myId = ui_create_object(parentId, UI_CLASS_BUTTON, sizeof(uiButtonData));
     if (myId == UI_NONE) {
         return UI_NONE;
     }
     uiObject * self = &sUiObjectList[myId];
 
-    self->type = UI_CLASS_BUTTON;
-    self->text = textId;
-    self->printFont = FONT_SM64DS;
+    uiButtonData * data = (uiButtonData *) self->data;
+    data->text = textId;
+    data->printFont = FONT_SM64DS;
 
     return myId;
 }
@@ -253,7 +313,7 @@ uiid ui_create_text_quick(s8 parentId, s8 * textObject, char * text, s16 x, s16 
         ui_destroy_object(textTransform);
         return UI_NONE;
     }
-    ui_object_ptr(textId)->printOrigin = print_origin;
+    ((uiTextRawData *) ui_object_ptr(textId)->data)->printOrigin = print_origin;
 
     if (textObject != NULL) {
         *textObject = textId;
@@ -283,10 +343,17 @@ void ui_set_trans_xy(s8 myId, s16 x, s16 y) {
 
 void ui_set_text(s8 myId, s16 textId) {
     uiObject * self = &sUiObjectList[myId];
-    self->text = textId;
+    switch (self->type) {
+        case UI_CLASS_TEXT:
+            ((uiTextData *) self->data)->text = textId;
+            break;
+        case UI_CLASS_BUTTON:
+            ((uiButtonData *) self->data)->text = textId;
+            break;
+    }
 }
 
-void ui_set_trans_color(s8 myId, u8 r, u8 g, u8 b) {
+void ui_set_object_color(s8 myId, u8 r, u8 g, u8 b) {
     uiObject * self = &sUiObjectList[myId];
     self->color[0] = r;
     self->color[1] = g;
@@ -400,7 +467,6 @@ void ui_process_ui_object(uiObject * self) {
         return;
     }
 
-    uiObject * parent = ui_object_ptr(self->parent);
     f32 mixAlpha = ui_trans_get_parents_alpha(self->parent) * self->alpha;
     if (mixAlpha == 0.0f) {
         return;
@@ -408,25 +474,21 @@ void ui_process_ui_object(uiObject * self) {
     u8 r = self->color[0];
     u8 g = self->color[1];
     u8 b = self->color[2];
-    if (parent) {
-        r = r * parent->color[0] / 255;
-        g = g * parent->color[1] / 255;
-        b = b * parent->color[2] / 255;
-    }
     gDPSetEnvColor(gDisplayListHead++, r, g, b, mixAlpha);
 
     switch(self->type) {
-        case UI_CLASS_TEXT:
+        case UI_CLASS_TEXT: {
+            uiTextData * data = (uiTextData *) self->data;
             utf8_init_print();
-            utf8_set_font(self->printFont);
+            utf8_set_font(data->printFont);
 
-            str = get_text(self->text);
+            str = get_text(data->text);
 
             utf8_size(str,&x,&y);
-            self->textXsize = x;
+            data->textXsize = x;
 
             xoffset = 0;
-            switch(self->printOrigin) {
+            switch(data->printOrigin) {
                 case PRINT_ORIGIN_LEFT:
                     xoffset = x/2;
                     break;
@@ -435,22 +497,24 @@ void ui_process_ui_object(uiObject * self) {
                     break;
             }
 
-            if (self->x2 != 0) {
-                str = utf8_autonewline(str,self->x2);
+            if (data->x2 != 0) {
+                str = utf8_autonewline(str,data->x2);
             }
             utf8_print(str,(-x/2)+xoffset,0);
             break;
-        case UI_CLASS_TEXT_RAW:
+        }
+        case UI_CLASS_TEXT_RAW: {
+            uiTextRawData * data = (uiTextRawData *) self->data;
             utf8_init_print();
-            utf8_set_font(self->printFont);
+            utf8_set_font(data->printFont);
 
-            str = self->ptr;
+            str = data->ptr;
 
             utf8_size(str,&x,&y);
-            self->textXsize = x;
+            data->textXsize = x;
 
             xoffset = 0;
-            switch(self->printOrigin) {
+            switch(data->printOrigin) {
                 case PRINT_ORIGIN_LEFT:
                     xoffset = x/2;
                     break;
@@ -461,18 +525,22 @@ void ui_process_ui_object(uiObject * self) {
             
             utf8_print(str,(-x/2)+xoffset,0);
             break;
-        case UI_CLASS_SLICE:
-            init_slice_render(self->ptr);
-            render_slice(self->x1,self->y1, self->x2, self->y2);
+        }
+        case UI_CLASS_SLICE: {
+            uiSliceData * data = (uiSliceData *) self->data;
+            init_slice_render(data->ptr);
+            render_slice(data->x1,data->y1, data->x2, data->y2);
             break;
-        case UI_CLASS_BUTTON:
-            str = get_text(self->text);
+        }
+        case UI_CLASS_BUTTON: {
+            uiButtonData * data = (uiButtonData *) self->data;
+            str = get_text(data->text);
 
             utf8_size(str,&x,&y);
-            self->textXsize = x;
+            data->textXsize = x;
 
             xoffset = 0;
-            switch(self->printOrigin) {
+            switch(data->printOrigin) {
                 case PRINT_ORIGIN_LEFT:
                     xoffset = x/2;
                     break;
@@ -485,21 +553,29 @@ void ui_process_ui_object(uiObject * self) {
             render_slice((-x/2)-10+xoffset,22,(x/2)+10+xoffset,-10);
 
             utf8_init_print();
-            utf8_set_font(self->printFont);
+            utf8_set_font(data->printFont);
             utf8_print(str,(-x/2)+xoffset,0);
             break;
-        case UI_CLASS_BOX:;
+        }
+        case UI_CLASS_BOX: {
+            uiBoxData * data = (uiBoxData *) self->data;
             Vtx * boxVerts = alloc_display_list(4 * sizeof(Vtx));
 
-            make_vertex(boxVerts, 0, self->x1, self->y1,         0,   0,0,   255,255,255,255);
-            make_vertex(boxVerts, 1, self->x2, self->y1,         0,   0,0,   255,255,255,255);
-            make_vertex(boxVerts, 2, self->x1, self->y2,         0,   0,0,   255,255,255,255);
-            make_vertex(boxVerts, 3, self->x2, self->y2,         0,   0,0,   255,255,255,255);
+            make_vertex(boxVerts, 0, data->x1, data->y1,         0,   0,0,   255,255,255,255);
+            make_vertex(boxVerts, 1, data->x2, data->y1,         0,   0,0,   255,255,255,255);
+            make_vertex(boxVerts, 2, data->x1, data->y2,         0,   0,0,   255,255,255,255);
+            make_vertex(boxVerts, 3, data->x2, data->y2,         0,   0,0,   255,255,255,255);
 
             gSPDisplayList(gDisplayListHead++,dl_ui_draw_text_bg_box);
             gSPVertex(gDisplayListHead++,boxVerts,4,0);
             gSP2Triangles(gDisplayListHead++, 1, 0, 2, 0, 3, 1, 2, 0);
             break;
+        }
+        case UI_CLASS_IMAGE: {
+            uiImageData * data = (uiImageData *) self->data;
+            render_rgba16_texture( 0, 0, data->texture );
+            break;
+        }
     }
 }
 
@@ -612,8 +688,8 @@ void ui_hud_create(void) {
 
         sUiidHudText[0] = ui_create_text_raw(sUiidHudTrans[0],sCoinCharBuffer);
         sUiidHudText[1] = ui_create_text_raw(sUiidHudTrans[1],sStarCharBuffer);
-        ui_object_ptr(sUiidHudText[0])->printFont = FONT_PINBALL;
-        ui_object_ptr(sUiidHudText[1])->printFont = FONT_PINBALL;
+        ((uiTextRawData *) ui_object_ptr(sUiidHudText[0])->data)->printFont = FONT_PINBALL;
+        ((uiTextRawData *) ui_object_ptr(sUiidHudText[1])->data)->printFont = FONT_PINBALL;
 
         sHudEmphasisTimer[0] = 0.0f;
         sHudEmphasisTimer[1] = 0.0f;
@@ -643,7 +719,7 @@ void ui_hud_update(void) {
 
         for (int i = 0; i < 2; i++) {
             if (sUiidHudText[i] != UI_NONE ) {
-                u8 size = ui_object_ptr(sUiidHudText[i])->textXsize;
+                u8 size = ((uiTextRawData *) ui_object_ptr(sUiidHudText[i])->data)->textXsize;
                 f32 emphasis = CLAMP(sHudEmphasisTimer[i],0.0f,1.0f);
                 emphasis = smoothstep2(emphasis);
                 ui_object_ptr(sUiidHudTrans[i])->pos[0] = ((-size)+(emphasis*(f32)(22+size)));
@@ -696,6 +772,8 @@ uiid sUiPauseTabs[MAX_TAB_COUNT];
 uiid sUiPauseTabTransforms[MAX_TAB_COUNT];
 uiid sUiPauseTabIds[MAX_TAB_COUNT];
 u8 sUiPauseTabCount = 0;
+
+uiid sUiidPauseCursor = UI_NONE;
 
 char sUiPauseStringBuffers[10][40];
 
@@ -785,7 +863,7 @@ void ui_pause_options_update() {
 void ui_pause_tab_create(int text, int tab_id) {
     sUiPauseTabTransforms[sUiPauseTabCount] = ui_create_transform(sUiidPauseTrans);
     sUiPauseTabs[sUiPauseTabCount] = ui_create_btn(sUiPauseTabTransforms[sUiPauseTabCount], text);
-    ui_object_ptr(sUiPauseTabs[sUiPauseTabCount])->printOrigin = PRINT_ORIGIN_CENTER;
+    ((uiButtonData *) ui_object_ptr(sUiPauseTabs[sUiPauseTabCount])->data)->printOrigin = PRINT_ORIGIN_CENTER;
     sUiPauseTabIds[sUiPauseTabCount] = tab_id;
     sUiPauseTabCount++;
 }
@@ -806,7 +884,7 @@ void ui_pause_create(void) {
 
     sUiidPauseTrans = ui_create_transform(gUiidScreen);
     uiid pauseRectangle = ui_create_rectangle(sUiidPauseTrans,0,240,320,0);
-    ui_set_trans_color(sUiidPauseTrans,0,0,0);
+    ui_set_object_color(pauseRectangle,0,0,0);
     ui_object_ptr(pauseRectangle)->alpha = 100;
 
     //uiid transPauseText = ui_create_transform(sUiidPauseTrans);
@@ -824,16 +902,16 @@ void ui_pause_create(void) {
     int xtotalhalf = ((sUiPauseTabCount-1) * 80) / 2;
     for (int i = 0; i < sUiPauseTabCount; i++) {
         ui_set_trans_xy( sUiPauseTabTransforms[i], 160 + (i * 80) - xtotalhalf, 180 );
-        //xoffset += ui_object_ptr(sUiPauseTabs[i])->textXsize;
+        //xoffset += ((uiButtonData *) ui_object_ptr(sUiPauseTabs[i])->data)->textXsize;
 
         //int x, y;
-        //utf8_size( get_text( ui_object_ptr(sUiPauseTabs[i])->text ), &x, &y );
+        //utf8_size( get_text( ((uiButtonData *) ui_object_ptr(sUiPauseTabs[i])->data)->text ), &x, &y );
         //xoffset += x;
 
-        ui_object_ptr(sUiPauseTabTransforms[i])->color[0] = 50;
-        ui_object_ptr(sUiPauseTabTransforms[i])->color[1] = 50;
-        ui_object_ptr(sUiPauseTabTransforms[i])->color[2] = 50;
+        ui_set_object_color(sUiPauseTabs[i],50,50,50);
     }
+
+    sUiidPauseCursor = ui_create_image(sUiidPauseTrans, pin_rgba16);
 }
 
 void ui_pause_destroy(void) {
@@ -863,9 +941,9 @@ s32 ui_pause_logic(void) {
 
         for (int i = 0; i < sUiPauseTabCount; i++) {
             if (i == sUiPauseTabIndex) {
-                ui_object_ptr(sUiPauseTabTransforms[i])->color[0] = 255;
+                ui_object_ptr(sUiPauseTabs[i])->color[0] = 255;
             } else {
-                ui_object_ptr(sUiPauseTabTransforms[i])->color[0] = 50;
+                ui_object_ptr(sUiPauseTabs[i])->color[0] = 50;
             }
         }
 

@@ -23,7 +23,7 @@ void ui_destroy_trans(uiid idPtr);
 void ui_set_trans_pos(s8 myId, Vec3f pos);
 void ui_set_trans_xy(s8 myId, s16 x, s16 y);
 void ui_set_text(s8 myId, s16 textId);
-void ui_set_trans_color(s8 myId, u8 r, u8 g, u8 b);
+void ui_set_object_color(s8 myId, u8 r, u8 g, u8 b);
 
 void ui_set_transition_instant(s8 myId);
 void ui_set_transition_slide(uiid myId, Vec3f start, Vec3f end);
@@ -54,8 +54,6 @@ void ui_hud_destroy(void);
 s32 ui_get_input(int dir);
 
 #define UI_NONE -1
-
-// Shared capacity for visible objects and invisible transform objects.
 #define UI_OBJECT_COUNT 70
 
 enum {
@@ -73,6 +71,54 @@ enum {
     PRINT_ORIGIN_CENTER,
     PRINT_ORIGIN_RIGHT,
 };
+
+typedef struct {
+    u8 reserved;
+} uiTransformData;
+
+typedef struct {
+    u8 * texture;
+} uiImageData;
+
+typedef struct {
+    u16 text;
+    u8 textXsize;
+    u8 printParam;
+    u8 printOrigin;
+    u8 printFont;
+    s16 x2;
+} uiTextData;
+
+typedef struct {
+    char * ptr;
+    u8 textXsize;
+    u8 printParam;
+    u8 printOrigin;
+    u8 printFont;
+} uiTextRawData;
+
+typedef struct {
+    u16 text;
+    u8 textXsize;
+    u8 printParam;
+    u8 printOrigin;
+    u8 printFont;
+} uiButtonData;
+
+typedef struct {
+    nineSliceParams * ptr;
+    s16 x1;
+    s16 y1;
+    s16 x2;
+    s16 y2;
+} uiSliceData;
+
+typedef struct {
+    s16 x1;
+    s16 y1;
+    s16 x2;
+    s16 y2;
+} uiBoxData;
 
 typedef struct {
     u8 initialized:1;
@@ -100,16 +146,7 @@ typedef struct {
     u8 alpha;
     u8 color[3];
 
-    u16 text;
-    u8 textXsize;
-    s16 x1;
-    s16 y1;
-    s16 x2;
-    s16 y2;
-    void * ptr;
-    u8 printParam;
-    u8 printOrigin;
-    u8 printFont;
+    void * data;
 } uiObject;
 
 uiObject * ui_object_ptr(s8 myId);
