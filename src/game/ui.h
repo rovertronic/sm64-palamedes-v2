@@ -8,12 +8,13 @@ typedef s8 uiid;
 typedef u8 uiDestroySignal;
 
 uiid ui_create_transform(s8 parentId);
-uiid ui_create_text(s8 parentTransId, s16 textId);
-uiid ui_create_slice(s8 parentTransId, nineSliceParams * p, s16 x1, s16 y1, s16 x2, s16 y2);
-uiid ui_create_btn(s8 parentTransId, s16 textId);
-uiid ui_create_rectangle(s8 parentTransId, s16 x1, s16 y1, s16 x2, s16 y2);
+uiid ui_create_text(s8 parentId, s16 textId);
+uiid ui_create_text_raw(s8 parentId, char * text);
+uiid ui_create_slice(s8 parentId, nineSliceParams * p, s16 x1, s16 y1, s16 x2, s16 y2);
+uiid ui_create_btn(s8 parentId, s16 textId);
+uiid ui_create_rectangle(s8 parentId, s16 x1, s16 y1, s16 x2, s16 y2);
 
-uiid ui_create_text_quick(s8 parentTransId, s8 * textObject, char * text, s16 x, s16 y, u8 print_origin);
+uiid ui_create_text_quick(s8 parentId, s8 * textObject, char * text, s16 x, s16 y, u8 print_origin);
 
 s32 ui_is_not_transitioning(uiid myId);
 void ui_set_destroy_signal(uiid myId, uiDestroySignal * destroySignal);
@@ -54,8 +55,8 @@ s32 ui_get_input(int dir);
 
 #define UI_NONE -1
 
-#define UI_OBJECT_COUNT 30
-#define UI_TRANS_COUNT 40
+// Shared capacity for visible objects and invisible transform objects.
+#define UI_OBJECT_COUNT 70
 
 enum {
     UI_CLASS_TEXT,
@@ -64,6 +65,7 @@ enum {
     UI_CLASS_IMAGE,
     UI_CLASS_BOX,
     UI_CLASS_TEXT_RAW,
+    UI_CLASS_TRANSFORM,
 };
 
 enum {
@@ -74,60 +76,42 @@ enum {
 
 typedef struct {
     u8 initialized:1;
+    u8 base:1;
+    u8 getout:1;
+    u8 layer:1;
 
-    uiid parentTrans;
+    uiid parent;
+    uiid childlist;
+    uiid next;
+    uiid prev;
 
     u8 type;
-    s8 uiObjectSibling;
+
+    Vec3f pos;
+    Vec3f posLerp;
+    Vec3f slideStart;
+    Vec3f slideEnd;
+    Vec3f rot;
+    Vec3f rotLerp;
+
+    void (* transitionFunction[2])(uiid self);
+    uiDestroySignal * destroySignal;
+    f32 transition;
+    u8 alpha;
+    u8 color[3];
 
     u16 text;
     u8 textXsize;
-
     s16 x1;
     s16 y1;
     s16 x2;
     s16 y2;
-
-    u8 alpha;
-
     void * ptr;
     u8 printParam;
     u8 printOrigin;
     u8 printFont;
 } uiObject;
 
-typedef struct {
-    u8 initialized:1;
-    u8 base:1;
-    u8 getout:1;
-    u8 layer:1;
-
-    s8 parent;
-
-    uiid childlist;
-    uiid next;
-    uiid prev;
-
-    s8 objlist;
-
-    Vec3f pos;
-    Vec3f posLerp;
-
-    Vec3f slideStart;
-    Vec3f slideEnd;
-
-    Vec3f rot;
-    Vec3f rotLerp;
-
-    void (* transitionFunction[2])(uiid self);
-    uiDestroySignal * destroySignal;
-
-    f32 transition;
-    u8 alpha;
-    u8 color[3];
-} uiTrans;
-
-uiTrans * ui_trans_ptr(s8 myId);
 uiObject * ui_object_ptr(s8 myId);
 
 #endif

@@ -121,7 +121,7 @@ void event_set_dialog(int callContext) {
             if (sUiidDialogTransform != UI_NONE) {
                 ui_object_ptr(sUiidDialogSlice)->ptr = &gNotepadRipSliceParams;
                 ui_trans_begin_remove(sUiidDialogTransform);
-                ui_trans_ptr(sUiidDialogTransform)->layer = 1;
+                ui_object_ptr(sUiidDialogTransform)->layer = 1;
                 first = FALSE;
             }
 
@@ -133,7 +133,7 @@ void event_set_dialog(int callContext) {
             if (!first) {
                 ui_set_transition_instant(sUiidDialogTransform);
             }
-            ui_trans_ptr(sUiidDialogTransform)->transitionFunction[1] = ui_trans_transition_page_rip_out;
+            ui_object_ptr(sUiidDialogTransform)->transitionFunction[1] = ui_trans_transition_page_rip_out;
             
             for (int i = 0; i < sEventDialogOptionCount; i++) {
                 sUiidDialogOptionTransform[i] = ui_create_transform(gUiidScreen);
@@ -149,7 +149,7 @@ void event_set_dialog(int callContext) {
                 sEventHalt = FALSE;
                 if (sEventDialogOptionCount > 0) {
                     // Since the question dialog is skewed, fade out instead
-                    ui_trans_ptr(sUiidDialogTransform)->transitionFunction[1] = ui_trans_transition_fade_out;
+                    ui_object_ptr(sUiidDialogTransform)->transitionFunction[1] = ui_trans_transition_fade_out;
 
                     // Clear options
                     for (int i = 0; i < sEventDialogOptionCount; i++) {
@@ -417,8 +417,8 @@ void event_system_logic_loop(void) {
 
     // Event ui
     if (sEventDialogOptionCount > 0) {
-        ui_trans_ptr(sUiidDialogTransform)->rot[1] =
-        approach_f32_asymptotic(ui_trans_ptr(sUiidDialogTransform)->rot[1],0x4000,.2f);
+        ui_object_ptr(sUiidDialogTransform)->rot[1] =
+        approach_f32_asymptotic(ui_object_ptr(sUiidDialogTransform)->rot[1],0x4000,.2f);
     }
 }
 
