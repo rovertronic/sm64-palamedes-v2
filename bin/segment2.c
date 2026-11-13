@@ -3640,6 +3640,10 @@ Texture pinball_2_rgba16[] = {
     #include "textures/segment2/pinball2.rgba16.inc.c"
 };
 
+Texture pinball_3_rgba16[] = {
+    #include "textures/segment2/pinball3.rgba16.inc.c"
+};
+
 Texture nine_slice_sample_rgba16[] = {
     #include "textures/segment2/nine_slice_sample.rgba16.inc.c"
 };
@@ -3654,6 +3658,10 @@ Texture nine_slice_notepad_rgba16[] = {
 
 Texture nine_slice_notepad_rip_rgba16[] = {
     #include "textures/segment2/notepadRipSlice.rgba16.inc.c"
+};
+
+Texture nine_slice_default_rgba16[] = {
+    #include "textures/segment2/nine_slice_default.rgba16.inc.c"
 };
 
 Texture pin_rgba16[] = {

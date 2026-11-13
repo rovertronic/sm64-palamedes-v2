@@ -13,6 +13,8 @@ uiid ui_create_text_raw(s8 parentId, char * text);
 uiid ui_create_slice(s8 parentId, nineSliceParams * p, s16 x1, s16 y1, s16 x2, s16 y2);
 uiid ui_create_btn(s8 parentId, s16 textId);
 uiid ui_create_rectangle(s8 parentId, s16 x1, s16 y1, s16 x2, s16 y2);
+uiid ui_create_scissor(s8 parentId, s16 x1, s16 x2, s16 y1, s16 y2);
+uiid ui_create_slice_scissor(uiid sliceId);
 
 uiid ui_create_text_quick(s8 parentId, char * text, s16 x, s16 y, u8 print_origin);
 
@@ -64,6 +66,7 @@ enum {
     UI_CLASS_BOX,
     UI_CLASS_TEXT_RAW,
     UI_CLASS_TRANSFORM,
+    UI_CLASS_SCISSOR,
 };
 
 enum {
@@ -120,6 +123,13 @@ typedef struct {
     s16 x2;
     s16 y2;
 } uiBoxData;
+
+typedef struct {
+    s16 x1;
+    s16 x2;
+    s16 y1;
+    s16 y2;
+} uiScissorData;
 
 typedef struct {
     u8 initialized:1;

@@ -31,6 +31,7 @@ int sUiMatStackIndex = 0;
 uiObject sUiObjectList[UI_OBJECT_COUNT];
 char sUiCharBuffer[200];
 int sUiCurrLayer = 0;
+static f32 sUiScissor[4]; // Screen-space left, top, right, bottom.
 
 uiid gUiidScreen;
 
@@ -358,6 +359,28 @@ uiid ui_create_rectangle(s8 parentId, s16 x1, s16 y1, s16 x2, s16 y2) {
     return myId;
 }
 
+uiid ui_create_scissor(s8 parentId, s16 x1, s16 x2, s16 y1, s16 y2) {
+    uiid myId = ui_create_object(parentId, UI_CLASS_SCISSOR, sizeof(uiScissorData));
+    if (myId == UI_NONE) {
+        return UI_NONE;
+    }
+    uiScissorData * data = (uiScissorData *) ui_object_ptr(myId)->data;
+    data->x1 = x1;
+    data->x2 = x2;
+    data->y1 = y1;
+    data->y2 = y2;
+    return myId;
+}
+
+uiid ui_create_slice_scissor(uiid sliceId) {
+    uiObject * slice = ui_object_ptr(sliceId);
+    if (slice == NULL || !slice->initialized || slice->type != UI_CLASS_SLICE) {
+        return UI_NONE;
+    }
+    uiSliceData * data = (uiSliceData *) slice->data;
+    return ui_create_scissor(sliceId, data->x1, data->x2, data->y1, data->y2);
+}
+
 uiid ui_create_btn(s8 parentId, s16 textId) {
     s8 myId = ui_create_object(parentId, UI_CLASS_BUTTON, sizeof(uiButtonData));
     if (myId == UI_NONE) {
@@ -642,6 +665,39 @@ void ui_process_ui_object(uiObject * self) {
     }
 }
 
+static void ui_apply_scissor(void) {
+    gDPPipeSync(gDisplayListHead++);
+    gDPSetScissor(gDisplayListHead++, G_SC_NON_INTERLACE,
+                  sUiScissor[0], sUiScissor[1], sUiScissor[2], sUiScissor[3]);
+}
+
+static void ui_render_scissor(uiObject * self) {
+    uiScissorData * data = (uiScissorData *) self->data;
+    Mat4 * mat = &sUiMatStack[sUiMatStackIndex - 1];
+    f32 z = (*mat)[3][2];
+
+    // Match ui_init_mtx_stack's 90-degree, 4:3 perspective and the full viewport.
+    // With no rotation, both corners share a depth and the axes stay aligned.
+    if (z > -10.0f || z < -1000.0f) {
+        sUiScissor[2] = sUiScissor[0];
+        sUiScissor[3] = sUiScissor[1];
+    } else {
+        f32 scale = (SCREEN_HEIGHT / 2.0f) / -z;
+        f32 x1 = SCREEN_WIDTH / 2.0f + (data->x1 * (*mat)[0][0] + (*mat)[3][0]) * scale;
+        f32 x2 = SCREEN_WIDTH / 2.0f + (data->x2 * (*mat)[0][0] + (*mat)[3][0]) * scale;
+        f32 y1 = SCREEN_HEIGHT / 2.0f - (data->y1 * (*mat)[1][1] + (*mat)[3][1]) * scale;
+        f32 y2 = SCREEN_HEIGHT / 2.0f - (data->y2 * (*mat)[1][1] + (*mat)[3][1]) * scale;
+
+        // Intersect with the enclosing clip, also keeping offscreen bounds valid
+        // for the RDP's unsigned scissor coordinates. Disjoint clips are empty.
+        sUiScissor[0] = CLAMP(MIN(x1, x2), sUiScissor[0], sUiScissor[2]);
+        sUiScissor[1] = CLAMP(MIN(y1, y2), sUiScissor[1], sUiScissor[3]);
+        sUiScissor[2] = CLAMP(MAX(x1, x2), sUiScissor[0], sUiScissor[2]);
+        sUiScissor[3] = CLAMP(MAX(y1, y2), sUiScissor[1], sUiScissor[3]);
+    }
+    ui_apply_scissor();
+}
+
 void ui_object_process_children(uiid objectId, u8 parentLayer) {
     while (objectId != UI_NONE) {
         uiObject * self = ui_object_ptr(objectId);
@@ -657,11 +713,21 @@ void ui_object_process_children(uiid objectId, u8 parentLayer) {
 
         // A foreground parent carries its descendants onto the same layer.
         u8 layer = self->layer | parentLayer;
-        if (layer == sUiCurrLayer) {
+        f32 previousScissor[4];
+        u8 isScissor = self->type == UI_CLASS_SCISSOR;
+        if (isScissor) {
+            // Apply on both passes so foreground descendants inherit the clip.
+            memcpy(previousScissor, sUiScissor, sizeof(previousScissor));
+            ui_render_scissor(self);
+        } else if (layer == sUiCurrLayer) {
             ui_process_ui_object(self);
         }
         if (self->childlist != UI_NONE) {
             ui_object_process_children(self->childlist, layer);
+        }
+        if (isScissor) {
+            memcpy(sUiScissor, previousScissor, sizeof(sUiScissor));
+            ui_apply_scissor();
         }
         ui_mtx_pop();
         objectId = self->next;
@@ -670,6 +736,10 @@ void ui_object_process_children(uiid objectId, u8 parentLayer) {
 
 void ui_render(void) {
     ui_init_mtx_stack();
+    sUiScissor[0] = 0.0f;
+    sUiScissor[1] = gBorderHeight;
+    sUiScissor[2] = SCREEN_WIDTH;
+    sUiScissor[3] = SCREEN_HEIGHT - gBorderHeight;
     for (int l = 0; l < 2; l++) {
         sUiCurrLayer = l;
         for (int i = 0; i < UI_OBJECT_COUNT; i++) {
@@ -947,9 +1017,14 @@ void ui_pause_options_update() {
 }
 
 void ui_pause_progression_create(void) {
-    uiid level_name = ui_create_text(sUiidPauseTabContent, TEXT_STAR_GROUP_0);
-    ui_set_trans_xy(level_name, 40,155);
-    uiid level_stars = ui_create_text_quick(sUiidPauseTabContent, "★★@0@★★@@★★★", 40, 135, PRINT_ORIGIN_LEFT);
+    uiid sdbox = ui_create_slice(sUiidPauseTabContent, &gDefaultSliceParams, 0, 0, 100, -50);
+    ui_set_trans_xy(sdbox, 40, 160);
+
+    uiid scissor = ui_create_slice_scissor(sdbox);
+
+    uiid level_name = ui_create_text(scissor, TEXT_STAR_GROUP_0);
+    ui_set_trans_xy(level_name, 0,-5);
+    uiid level_stars = ui_create_text_quick(scissor, "★★||★★★", 0, -25, PRINT_ORIGIN_LEFT);
     ((uiTextRawData *) ui_object_ptr(level_stars)->data)->printFont = FONT_PINBALL;
 }
 

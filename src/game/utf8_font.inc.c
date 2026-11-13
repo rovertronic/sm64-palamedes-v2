@@ -564,9 +564,15 @@ fontChar sCharListPinball[] = {
         .size = 12
     },
     {
-        .utf8code = 0x2605, /*★*/
-        .xUv = 84,
+        .utf8code = '|',
+        .xUv = 17,
         .size = 16,
-        .tex = pinball_2_rgba16,
+        .tex = pinball_3_rgba16,
+    },
+    {
+        .utf8code = 0x2605, /*★*/
+        .xUv = 0,
+        .size = 16,
+        .tex = pinball_3_rgba16,
     },
 };

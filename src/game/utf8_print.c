@@ -65,6 +65,13 @@ nineSliceParams gNotepadRipSliceParams = {
     .sliceType = SLICE_TYPE_9,
 };
 
+nineSliceParams gDefaultSliceParams = {
+    .texture = nine_slice_default_rgba16,
+    .centerTexture = NULL,
+    .xDivide1 = 16,
+    .sliceType = SLICE_TYPE_4,
+};
+
 void utf8_initialize_table(void) {
     for (int j = 0; j < 2; j++){
         sPrintFont = &sFontInfoArray[j];
