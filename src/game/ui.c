@@ -162,7 +162,7 @@ static uiid ui_create_object(s8 parentId, u8 type, u32 dataSize) {
     self->prev = UI_NONE;
     self->alpha = 255;
     self->transition = 1.0f;
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 4; i++) {
         self->color[i] = 255;
     }
 
@@ -339,6 +339,10 @@ uiid ui_create_slice(s8 parentId, nineSliceParams * p, s16 x1, s16 y1, s16 x2, s
 
     data->ptr = p;
 
+    if (p == &gDefaultSliceParams) {
+        ui_set_object_color(myId,0,0,0,150);
+    }
+
     return myId;
 }
 
@@ -439,11 +443,12 @@ void ui_set_text(s8 myId, s16 textId) {
     }
 }
 
-void ui_set_object_color(s8 myId, u8 r, u8 g, u8 b) {
+void ui_set_object_color(s8 myId, u8 r, u8 g, u8 b, u8 a) {
     uiObject * self = &sUiObjectList[myId];
     self->color[0] = r;
     self->color[1] = g;
     self->color[2] = b;
+    self->color[3] = a;
 }
 
 void ui_set_transition_instant(s8 myId) {
@@ -470,14 +475,14 @@ void ui_trans_transition_fade_in(uiid myId) {
     uiObject * self = &sUiObjectList[myId];
     self->alpha = self->transition*255.0f;
 
-    self->transition += .1f;
+    self->transition += .2f;
 }
 
 void ui_trans_transition_fade_out(uiid myId) {
     uiObject * self = &sUiObjectList[myId];
     self->alpha = (1.0f - self->transition)*255.0f;
 
-    self->transition += .1f;
+    self->transition += .2f;
 }
 
 void ui_trans_transition_instant(uiid myId) {
@@ -560,7 +565,8 @@ void ui_process_ui_object(uiObject * self) {
     u8 r = self->color[0];
     u8 g = self->color[1];
     u8 b = self->color[2];
-    gDPSetEnvColor(gDisplayListHead++, r, g, b, mixAlpha);
+    u8 a = self->color[3] * (mixAlpha/255.0f);
+    gDPSetEnvColor(gDisplayListHead++, r, g, b, a);
 
     switch(self->type) {
         case UI_CLASS_TEXT: {
@@ -620,6 +626,7 @@ void ui_process_ui_object(uiObject * self) {
         }
         case UI_CLASS_BUTTON: {
             uiButtonData * data = (uiButtonData *) self->data;
+            utf8_set_font(data->printFont);
             str = get_text(data->text);
 
             utf8_size(str,&x,&y);
@@ -635,11 +642,12 @@ void ui_process_ui_object(uiObject * self) {
                     break;
             }
 
-            init_slice_render(&gStickySliceParams);
-            render_slice((-x/2)-10+xoffset,22,(x/2)+10+xoffset,-10);
+            gDPSetEnvColor(gDisplayListHead++, r, g, b, 200 * (a/255.0f));
+            init_slice_render(&gDefaultSliceParams);
+            render_slice((-x/2)-10+xoffset,18,(x/2)+10+xoffset,-2);
+            gDPSetEnvColor(gDisplayListHead++, r, g, b, a);
 
             utf8_init_print();
-            utf8_set_font(data->printFont);
             utf8_print(str,(-x/2)+xoffset,0);
             break;
         }
@@ -676,8 +684,6 @@ static void ui_render_scissor(uiObject * self) {
     Mat4 * mat = &sUiMatStack[sUiMatStackIndex - 1];
     f32 z = (*mat)[3][2];
 
-    // Match ui_init_mtx_stack's 90-degree, 4:3 perspective and the full viewport.
-    // With no rotation, both corners share a depth and the axes stay aligned.
     if (z > -10.0f || z < -1000.0f) {
         sUiScissor[2] = sUiScissor[0];
         sUiScissor[3] = sUiScissor[1];
@@ -688,8 +694,6 @@ static void ui_render_scissor(uiObject * self) {
         f32 y1 = SCREEN_HEIGHT / 2.0f - (data->y1 * (*mat)[1][1] + (*mat)[3][1]) * scale;
         f32 y2 = SCREEN_HEIGHT / 2.0f - (data->y2 * (*mat)[1][1] + (*mat)[3][1]) * scale;
 
-        // Intersect with the enclosing clip, also keeping offscreen bounds valid
-        // for the RDP's unsigned scissor coordinates. Disjoint clips are empty.
         sUiScissor[0] = CLAMP(MIN(x1, x2), sUiScissor[0], sUiScissor[2]);
         sUiScissor[1] = CLAMP(MIN(y1, y2), sUiScissor[1], sUiScissor[3]);
         sUiScissor[2] = CLAMP(MAX(x1, x2), sUiScissor[0], sUiScissor[2]);
@@ -1017,15 +1021,17 @@ void ui_pause_options_update() {
 }
 
 void ui_pause_progression_create(void) {
-    uiid sdbox = ui_create_slice(sUiidPauseTabContent, &gDefaultSliceParams, 0, 0, 100, -50);
+    uiid sdbox = ui_create_slice(sUiidPauseTabContent, &gDefaultSliceParams, 0, 0, 120, -55);
     ui_set_trans_xy(sdbox, 40, 160);
 
     uiid scissor = ui_create_slice_scissor(sdbox);
 
-    uiid level_name = ui_create_text(scissor, TEXT_STAR_GROUP_0);
-    ui_set_trans_xy(level_name, 0,-5);
-    uiid level_stars = ui_create_text_quick(scissor, "★★||★★★", 0, -25, PRINT_ORIGIN_LEFT);
-    ((uiTextRawData *) ui_object_ptr(level_stars)->data)->printFont = FONT_PINBALL;
+    for (int i = 0; i < 2; i++) {
+        uiid level_name = ui_create_text(scissor, TEXT_STAR_GROUP_0);
+        ui_set_trans_xy(level_name, 5,-16 + (i * -32));
+        uiid level_stars = ui_create_text_quick(scissor, "★★||★★★", 5, -32 + (i * -32), PRINT_ORIGIN_LEFT);
+        ((uiTextRawData *) ui_object_ptr(level_stars)->data)->printFont = FONT_PINBALL;
+    }
 }
 
 void ui_pause_progression_update(void) {
@@ -1066,8 +1072,8 @@ void ui_pause_create(void) {
 
     sUiidPauseTrans = ui_create_transform(gUiidScreen);
     uiid pauseRectangle = ui_create_rectangle(sUiidPauseTrans,0,240,320,0);
-    ui_set_object_color(pauseRectangle,0,0,0);
-    ui_object_ptr(pauseRectangle)->alpha = 100;
+    ui_set_object_color(pauseRectangle,0,0,0,100);
+    //ui_object_ptr(pauseRectangle)->alpha = 100;
 
     //uiid transPauseText = ui_create_transform(sUiidPauseTrans);
     //ui_create_text(transPauseText,TEXT_PAUSE);
@@ -1090,10 +1096,10 @@ void ui_pause_create(void) {
         //utf8_size( get_text( ((uiButtonData *) ui_object_ptr(sUiidPauseTabs[i])->data)->text ), &x, &y );
         //xoffset += x;
 
-        ui_set_object_color(sUiidPauseTabs[i],50,50,50);
+        ui_set_object_color(sUiidPauseTabs[i],0,0,0,255);
     }
 
-    sUiidPauseCursor = ui_create_image(sUiidPauseTrans, pin_rgba16);
+    //sUiidPauseCursor = ui_create_image(sUiidPauseTrans, pin_rgba16);
 }
 
 void ui_pause_destroy(void) {
@@ -1123,10 +1129,11 @@ s32 ui_pause_logic(void) {
 
         for (int i = 0; i < sUiPauseTabCount; i++) {
             if (i == sUiPauseTabIndex) {
-                ui_object_ptr(sUiidPauseTabs[i])->color[0] = 255;
+                u8 flash = 100 + sins(gGlobalTimer * 0x400) * 40.0f;
+                ui_set_object_color(sUiidPauseTabs[i],flash,flash,flash,255);
                 ui_object_ptr(sUiidPauseTabs[i])->pos[1] = approach_f32_asymptotic(ui_object_ptr(sUiidPauseTabs[i])->pos[1], 205, .1f);
             } else {
-                ui_object_ptr(sUiidPauseTabs[i])->color[0] = 50;
+                ui_set_object_color(sUiidPauseTabs[i],0,0,0,255);
                 ui_object_ptr(sUiidPauseTabs[i])->pos[1] = approach_f32_asymptotic(ui_object_ptr(sUiidPauseTabs[i])->pos[1], 200, .1f);
             }
         }

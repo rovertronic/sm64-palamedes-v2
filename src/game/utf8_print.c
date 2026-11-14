@@ -36,6 +36,7 @@ fontInfo sFontInfoArray[] = {
 
 
 nineSliceParams testSliceParams = {
+    .cornerScale = 1.0f,
     .texture = nine_slice_sample_rgba16,
     .centerTexture = NULL,
     .xDivide1 = 16,
@@ -43,6 +44,7 @@ nineSliceParams testSliceParams = {
 };
 
 nineSliceParams gStickySliceParams = {
+    .cornerScale = 1.0f,
     .texture = nine_slice_stickynote_rgba16,
     .centerTexture = NULL,
     .xDivide1 = 19,
@@ -50,6 +52,7 @@ nineSliceParams gStickySliceParams = {
 };
 
 nineSliceParams gNotepadSliceParams = {
+    .cornerScale = 1.0f,
     .texture = nine_slice_notepad_rgba16,
     .centerTexture = NULL,
     .xDivide1 = 8,
@@ -58,6 +61,7 @@ nineSliceParams gNotepadSliceParams = {
 };
 
 nineSliceParams gNotepadRipSliceParams = {
+    .cornerScale = 1.0f,
     .texture = nine_slice_notepad_rip_rgba16,
     .centerTexture = NULL,
     .xDivide1 = 8,
@@ -66,6 +70,7 @@ nineSliceParams gNotepadRipSliceParams = {
 };
 
 nineSliceParams gDefaultSliceParams = {
+    .cornerScale = 0.25f,
     .texture = nine_slice_default_rgba16,
     .centerTexture = NULL,
     .xDivide1 = 16,
@@ -422,27 +427,32 @@ void render_4slice(int x1, int y1, int x2, int y2) {
     u8 cSizT = cSizL;
     u8 cSizB = cSizR;
 
+    s16 cornerL = cSizL * sCur9sliceParams->cornerScale;
+    s16 cornerR = cSizR * sCur9sliceParams->cornerScale;
+    s16 cornerT = cSizT * sCur9sliceParams->cornerScale;
+    s16 cornerB = cSizB * sCur9sliceParams->cornerScale;
+
     s16 rUv = 32*32;
 
-    make_vertex(v, 0,  x1,       y1,       0,       0,            0,                   255, 255, 255, 255);
-    make_vertex(v, 1,  x1+cSizL, y1,       0,       32*cSizL,     0,                   255, 255, 255, 255);
-    make_vertex(v, 2,  x2-cSizR, y1,       0,       32*cSizL,     0,                   255, 255, 255, 255);
-    make_vertex(v, 3,  x2,       y1,       0,       rUv,          0,                   255, 255, 255, 255);
+    make_vertex(v, 0,  x1,         y1,       0,       0,            0,                   255, 255, 255, 255);
+    make_vertex(v, 1,  x1+cornerL, y1,       0,       32*cSizL,     0,                   255, 255, 255, 255);
+    make_vertex(v, 2,  x2-cornerR, y1,       0,       32*cSizL,     0,                   255, 255, 255, 255);
+    make_vertex(v, 3,  x2,         y1,       0,       rUv,          0,                   255, 255, 255, 255);
        
-    make_vertex(v, 4,  x1,       y1-cSizT, 0,       0,            cSizL*32,            255, 255, 255, 255);
-    make_vertex(v, 5,  x1+cSizL, y1-cSizT, 0,       32*cSizL,     cSizL*32,            255, 255, 255, 255);
-    make_vertex(v, 6,  x2-cSizR, y1-cSizT, 0,       32*cSizL,     cSizL*32,            255, 255, 255, 255);
-    make_vertex(v, 7,  x2,       y1-cSizT, 0,       rUv,          cSizL*32,            255, 255, 255, 255);
+    make_vertex(v, 4,  x1,         y1-cornerT, 0,       0,            cSizL*32,            255, 255, 255, 255);
+    make_vertex(v, 5,  x1+cornerL, y1-cornerT, 0,       32*cSizL,     cSizL*32,            255, 255, 255, 255);
+    make_vertex(v, 6,  x2-cornerR, y1-cornerT, 0,       32*cSizL,     cSizL*32,            255, 255, 255, 255);
+    make_vertex(v, 7,  x2,         y1-cornerT, 0,       rUv,          cSizL*32,            255, 255, 255, 255);
  
-    make_vertex(v, 8,  x1,       y2+cSizB, 0,       0,            cSizL*32,            255, 255, 255, 255);
-    make_vertex(v, 9,  x1+cSizL, y2+cSizB, 0,       32*cSizL,     cSizL*32,            255, 255, 255, 255);
-    make_vertex(v, 10, x2-cSizR, y2+cSizB, 0,       32*cSizL,     cSizL*32,            255, 255, 255, 255);
-    make_vertex(v, 11, x2,       y2+cSizB, 0,       rUv,          cSizL*32,            255, 255, 255, 255);
+    make_vertex(v, 8,  x1,         y2+cornerB, 0,       0,            cSizL*32,            255, 255, 255, 255);
+    make_vertex(v, 9,  x1+cornerL, y2+cornerB, 0,       32*cSizL,     cSizL*32,            255, 255, 255, 255);
+    make_vertex(v, 10, x2-cornerR, y2+cornerB, 0,       32*cSizL,     cSizL*32,            255, 255, 255, 255);
+    make_vertex(v, 11, x2,         y2+cornerB, 0,       rUv,          cSizL*32,            255, 255, 255, 255);
 
-    make_vertex(v, 12, x1,       y2,       0,       0,            rUv,                 255, 255, 255, 255);
-    make_vertex(v, 13, x1+cSizL, y2,       0,       32*cSizL,     rUv,                 255, 255, 255, 255);
-    make_vertex(v, 14, x2-cSizR, y2,       0,       32*cSizL,     rUv,                 255, 255, 255, 255);
-    make_vertex(v, 15, x2,       y2,       0,       rUv,          rUv,                 255, 255, 255, 255);
+    make_vertex(v, 12, x1,         y2,       0,       0,            rUv,                 255, 255, 255, 255);
+    make_vertex(v, 13, x1+cornerL, y2,       0,       32*cSizL,     rUv,                 255, 255, 255, 255);
+    make_vertex(v, 14, x2-cornerR, y2,       0,       32*cSizL,     rUv,                 255, 255, 255, 255);
+    make_vertex(v, 15, x2,         y2,       0,       rUv,          rUv,                 255, 255, 255, 255);
 
     gSPVertex(gDisplayListHead++,v,16,0);
     
@@ -461,33 +471,38 @@ void render_9slice(int x1, int y1, int x2, int y2) {
     u8 cSizT = cSizL;
     u8 cSizB = cSizR;
 
+    s16 cornerL = cSizL * sCur9sliceParams->cornerScale;
+    s16 cornerR = cSizR * sCur9sliceParams->cornerScale;
+    s16 cornerT = cSizT * sCur9sliceParams->cornerScale;
+    s16 cornerB = cSizB * sCur9sliceParams->cornerScale;
+
     s16 rUv = 32*32;
 
-    u16 uvX = ((x2-x1)*32)-(16*32);
-    u16 uvY = ((y1-y2)*32)-(16*32);
+    u16 uvX = (x2 - x1 - cornerL - cornerR) * 32;
+    u16 uvY = (y1 - y2 - cornerT - cornerB) * 32;
 
     // CORNERS
     Vtx * v = alloc_display_list(16 * sizeof(Vtx));
 
-    make_vertex(v, 0,  x1,       y1,       0,       0,            0,                   255, 255, 255, 255);
-    make_vertex(v, 1,  x1+cSizL, y1,       0,       32*cSizL,     0,                   255, 255, 255, 255);
-    make_vertex(v, 2,  x2-cSizR, y1,       0,       rUv-32*cSizR, 0,                   255, 255, 255, 255);
-    make_vertex(v, 3,  x2,       y1,       0,       rUv,          0,                   255, 255, 255, 255);
+    make_vertex(v, 0,  x1,         y1,       0,       0,            0,                   255, 255, 255, 255);
+    make_vertex(v, 1,  x1+cornerL, y1,       0,       32*cSizL,     0,                   255, 255, 255, 255);
+    make_vertex(v, 2,  x2-cornerR, y1,       0,       rUv-32*cSizR, 0,                   255, 255, 255, 255);
+    make_vertex(v, 3,  x2,         y1,       0,       rUv,          0,                   255, 255, 255, 255);
        
-    make_vertex(v, 4,  x1,       y1-cSizT, 0,       0,            cSizL*32,            255, 255, 255, 255);
-    make_vertex(v, 5,  x1+cSizL, y1-cSizT, 0,       32*cSizL,     cSizL*32,            255, 255, 255, 255);
-    make_vertex(v, 6,  x2-cSizR, y1-cSizT, 0,       rUv-32*cSizR, cSizL*32,            255, 255, 255, 255);
-    make_vertex(v, 7,  x2,       y1-cSizT, 0,       rUv,          cSizL*32,            255, 255, 255, 255);
+    make_vertex(v, 4,  x1,         y1-cornerT, 0,       0,            cSizL*32,            255, 255, 255, 255);
+    make_vertex(v, 5,  x1+cornerL, y1-cornerT, 0,       32*cSizL,     cSizL*32,            255, 255, 255, 255);
+    make_vertex(v, 6,  x2-cornerR, y1-cornerT, 0,       rUv-32*cSizR, cSizL*32,            255, 255, 255, 255);
+    make_vertex(v, 7,  x2,         y1-cornerT, 0,       rUv,          cSizL*32,            255, 255, 255, 255);
  
-    make_vertex(v, 8,  x1,       y2+cSizB, 0,       0,            rUv-cSizL*32,        255, 255, 255, 255);
-    make_vertex(v, 9,  x1+cSizL, y2+cSizB, 0,       32*cSizL,     rUv-cSizL*32,        255, 255, 255, 255);
-    make_vertex(v, 10, x2-cSizR, y2+cSizB, 0,       rUv-32*cSizR, rUv-cSizL*32,        255, 255, 255, 255);
-    make_vertex(v, 11, x2,       y2+cSizB, 0,       rUv,          rUv-cSizL*32,        255, 255, 255, 255);
+    make_vertex(v, 8,  x1,         y2+cornerB, 0,       0,            rUv-cSizL*32,        255, 255, 255, 255);
+    make_vertex(v, 9,  x1+cornerL, y2+cornerB, 0,       32*cSizL,     rUv-cSizL*32,        255, 255, 255, 255);
+    make_vertex(v, 10, x2-cornerR, y2+cornerB, 0,       rUv-32*cSizR, rUv-cSizL*32,        255, 255, 255, 255);
+    make_vertex(v, 11, x2,         y2+cornerB, 0,       rUv,          rUv-cSizL*32,        255, 255, 255, 255);
 
-    make_vertex(v, 12, x1,       y2,       0,       0,            rUv,                 255, 255, 255, 255);
-    make_vertex(v, 13, x1+cSizL, y2,       0,       32*cSizL,     rUv,                 255, 255, 255, 255);
-    make_vertex(v, 14, x2-cSizR, y2,       0,       rUv-32*cSizR, rUv,                 255, 255, 255, 255);
-    make_vertex(v, 15, x2,       y2,       0,       rUv,          rUv,                 255, 255, 255, 255);
+    make_vertex(v, 12, x1,         y2,       0,       0,            rUv,                 255, 255, 255, 255);
+    make_vertex(v, 13, x1+cornerL, y2,       0,       32*cSizL,     rUv,                 255, 255, 255, 255);
+    make_vertex(v, 14, x2-cornerR, y2,       0,       rUv-32*cSizR, rUv,                 255, 255, 255, 255);
+    make_vertex(v, 15, x2,         y2,       0,       rUv,          rUv,                 255, 255, 255, 255);
 
     gSPVertex(gDisplayListHead++,v,16,0);
     
@@ -499,10 +514,10 @@ void render_9slice(int x1, int y1, int x2, int y2) {
     // TOP
     v = alloc_display_list(4 * sizeof(Vtx));
 
-    make_vertex(v, 0,  x1+cSizL, y1,       0,       0,             0,                   255, 255, 255, 255);
-    make_vertex(v, 1,  x2-cSizR, y1,       0,       uvX,           0,                   255, 255, 255, 255);
-    make_vertex(v, 2,  x1+cSizL, y1-cSizT, 0,       0,             cSizT*32,            255, 255, 255, 255);
-    make_vertex(v, 3,  x2-cSizR, y1-cSizT, 0,       uvX,           cSizT*32,            255, 255, 255, 255);
+    make_vertex(v, 0,  x1+cornerL, y1,       0,       0,             0,                   255, 255, 255, 255);
+    make_vertex(v, 1,  x2-cornerR, y1,       0,       uvX,           0,                   255, 255, 255, 255);
+    make_vertex(v, 2,  x1+cornerL, y1-cornerT, 0,       0,             cSizT*32,            255, 255, 255, 255);
+    make_vertex(v, 3,  x2-cornerR, y1-cornerT, 0,       uvX,           cSizT*32,            255, 255, 255, 255);
 
     gSPVertex(gDisplayListHead++,v,4,0);
 	gDPSetTile(gDisplayListHead++,G_IM_FMT_RGBA, G_IM_SIZ_16b, 8, 2, G_TX_RENDERTILE, 0, G_TX_CLAMP | G_TX_NOMIRROR, 4, 0, G_TX_WRAP | G_TX_NOMIRROR, 3, 0);
@@ -512,10 +527,10 @@ void render_9slice(int x1, int y1, int x2, int y2) {
     // BOTTOM
     v = alloc_display_list(4 * sizeof(Vtx));
 
-    make_vertex(v, 0,  x1+cSizL, y2+cSizB, 0,       0,             0,                   255, 255, 255, 255);
-    make_vertex(v, 1,  x2-cSizR, y2+cSizB, 0,       uvX,           0,                   255, 255, 255, 255);
-    make_vertex(v, 2,  x1+cSizL, y2,       0,       0,             cSizT*32,            255, 255, 255, 255);
-    make_vertex(v, 3,  x2-cSizR, y2,       0,       uvX,           cSizT*32,            255, 255, 255, 255);
+    make_vertex(v, 0,  x1+cornerL, y2+cornerB, 0,       0,             0,                   255, 255, 255, 255);
+    make_vertex(v, 1,  x2-cornerR, y2+cornerB, 0,       uvX,           0,                   255, 255, 255, 255);
+    make_vertex(v, 2,  x1+cornerL, y2,       0,       0,             cSizT*32,            255, 255, 255, 255);
+    make_vertex(v, 3,  x2-cornerR, y2,       0,       uvX,           cSizT*32,            255, 255, 255, 255);
 
     gSPVertex(gDisplayListHead++,v,4,0);
     gDPSetTile(gDisplayListHead++,G_IM_FMT_RGBA, G_IM_SIZ_16b, 8, 194, G_TX_RENDERTILE, 0, G_TX_CLAMP | G_TX_NOMIRROR, 4, 0, G_TX_WRAP | G_TX_NOMIRROR, 3, 0);
@@ -525,10 +540,10 @@ void render_9slice(int x1, int y1, int x2, int y2) {
     // LEFT
     v = alloc_display_list(4 * sizeof(Vtx));
 
-    make_vertex(v, 0,  x1,       y1-cSizT, 0,       0,            0,            255, 255, 255, 255);
-    make_vertex(v, 1,  x1+cSizL, y1-cSizT, 0,       32*cSizL,     0,            255, 255, 255, 255);
-    make_vertex(v, 2,  x1,       y2+cSizB, 0,       0,            uvY,          255, 255, 255, 255);
-    make_vertex(v, 3,  x1+cSizL, y2+cSizB, 0,       32*cSizL,     uvY,          255, 255, 255, 255);
+    make_vertex(v, 0,  x1,       y1-cornerT, 0,       0,            0,            255, 255, 255, 255);
+    make_vertex(v, 1,  x1+cornerL, y1-cornerT, 0,       32*cSizL,     0,            255, 255, 255, 255);
+    make_vertex(v, 2,  x1,       y2+cornerB, 0,       0,            uvY,          255, 255, 255, 255);
+    make_vertex(v, 3,  x1+cornerL, y2+cornerB, 0,       32*cSizL,     uvY,          255, 255, 255, 255);
 
     gSPVertex(gDisplayListHead++,v,4,0);
     gDPSetTile(gDisplayListHead++,G_IM_FMT_RGBA, G_IM_SIZ_16b, 8, 64, G_TX_RENDERTILE, 0, G_TX_WRAP | G_TX_NOMIRROR, 4, 0, G_TX_WRAP | G_TX_NOMIRROR, 3, 0);
@@ -538,10 +553,10 @@ void render_9slice(int x1, int y1, int x2, int y2) {
     // RIGHT
     v = alloc_display_list(4 * sizeof(Vtx));
 
-    make_vertex(v, 0,  x2-cSizR, y1-cSizT, 0,       0,            0,            255, 255, 255, 255);
-    make_vertex(v, 1,  x2,       y1-cSizT, 0,       32*cSizL,     0,            255, 255, 255, 255);
-    make_vertex(v, 2,  x2-cSizR, y2+cSizB, 0,       0,            uvY,          255, 255, 255, 255);
-    make_vertex(v, 3,  x2,       y2+cSizB, 0,       32*cSizL,     uvY,          255, 255, 255, 255);
+    make_vertex(v, 0,  x2-cornerR, y1-cornerT, 0,       0,            0,            255, 255, 255, 255);
+    make_vertex(v, 1,  x2,       y1-cornerT, 0,       32*cSizL,     0,            255, 255, 255, 255);
+    make_vertex(v, 2,  x2-cornerR, y2+cornerB, 0,       0,            uvY,          255, 255, 255, 255);
+    make_vertex(v, 3,  x2,       y2+cornerB, 0,       32*cSizL,     uvY,          255, 255, 255, 255);
 
     gSPVertex(gDisplayListHead++,v,4,0);
     gDPSetTile(gDisplayListHead++,G_IM_FMT_RGBA, G_IM_SIZ_16b, 8, 70, G_TX_RENDERTILE, 0, G_TX_WRAP | G_TX_NOMIRROR, 4, 0, G_TX_WRAP | G_TX_NOMIRROR, 3, 0);
@@ -551,10 +566,10 @@ void render_9slice(int x1, int y1, int x2, int y2) {
     // CENTER
     v = alloc_display_list(4 * sizeof(Vtx));
 
-    make_vertex(v, 0,  x1+cSizL, y1-cSizT, 0,       0,            0,            255, 255, 255, 255);
-    make_vertex(v, 1,  x2-cSizL, y1-cSizT, 0,       uvX,          0,            255, 255, 255, 255);
-    make_vertex(v, 2,  x1+cSizL, y2+cSizB, 0,       0,            uvY,          255, 255, 255, 255);
-    make_vertex(v, 3,  x2-cSizR, y2+cSizB, 0,       uvX,          uvY,          255, 255, 255, 255);
+    make_vertex(v, 0,  x1+cornerL, y1-cornerT, 0,       0,            0,            255, 255, 255, 255);
+    make_vertex(v, 1,  x2-cornerL, y1-cornerT, 0,       uvX,          0,            255, 255, 255, 255);
+    make_vertex(v, 2,  x1+cornerL, y2+cornerB, 0,       0,            uvY,          255, 255, 255, 255);
+    make_vertex(v, 3,  x2-cornerR, y2+cornerB, 0,       uvX,          uvY,          255, 255, 255, 255);
 
     gSPVertex(gDisplayListHead++,v,4,0);
     gDPSetTile(gDisplayListHead++,G_IM_FMT_RGBA, G_IM_SIZ_16b, 8, 66, G_TX_RENDERTILE, 0, G_TX_WRAP | G_TX_NOMIRROR, 4, 0, G_TX_WRAP | G_TX_NOMIRROR, 4, 0);

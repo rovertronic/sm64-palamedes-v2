@@ -25,7 +25,7 @@ void ui_destroy_trans(uiid idPtr);
 void ui_set_trans_pos(s8 myId, Vec3f pos);
 void ui_set_trans_xy(s8 myId, s16 x, s16 y);
 void ui_set_text(s8 myId, s16 textId);
-void ui_set_object_color(s8 myId, u8 r, u8 g, u8 b);
+void ui_set_object_color(s8 myId, u8 r, u8 g, u8 b, u8 a);
 
 void ui_set_transition_instant(s8 myId);
 void ui_set_transition_slide(uiid myId, Vec3f start, Vec3f end);
@@ -154,8 +154,8 @@ typedef struct {
     void (* transitionFunction[2])(uiid self);
     uiDestroySignal * destroySignal;
     f32 transition;
-    u8 alpha;
-    u8 color[3];
+    u8 alpha; // inherits
+    u8 color[4]; // [3] is alpha, no inheritance
 
     void * data;
 } uiObject;

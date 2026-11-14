@@ -152,6 +152,7 @@ typedef struct {
     u8 xDivide1;
     u8 xDivide2;
     u8 sliceType;
+    f32 cornerScale;
 } nineSliceParams;
 
 extern nineSliceParams gNotepadSliceParams;

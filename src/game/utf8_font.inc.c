@@ -434,7 +434,7 @@ fontChar sCharListSM64DS[UTF8_COUNT] = {
     },
     [UTF8_RIGHT] = {
         .utf8code = 0x2192, /*→*/
-        .xUv = 422,
+        .xUv = 423,
         .size = 4,
         .tex = sm64DS_latin_i4,
     },

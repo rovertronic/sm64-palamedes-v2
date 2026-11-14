@@ -140,7 +140,7 @@ void event_set_dialog(int callContext) {
                 ui_set_trans_xy(sUiidDialogOptionTransform[i], 300, 200-(i*50));
                 uiid btn = ui_create_btn(sUiidDialogOptionTransform[i], sEventDialogOptionArray[i].textId);
                 ((uiButtonData *) ui_object_ptr(btn)->data)->printOrigin = PRINT_ORIGIN_RIGHT;
-                ui_set_object_color(sUiidDialogOptionTransform[i],stickyNoteColors[i][0],stickyNoteColors[i][1],stickyNoteColors[i][2]);
+                ui_set_object_color(sUiidDialogOptionTransform[i],stickyNoteColors[i][0],stickyNoteColors[i][1],stickyNoteColors[i][2],255);
             }
             break;
         case EVENT_CALL_CONTEXT_HALTED:
@@ -224,8 +224,8 @@ void event_absolute_cinema(UNUSED int callContext) {
         uiid r1 = ui_create_rectangle(sUiidCinemaTrans[0],-142,56,320,0);
         uiid r2 = ui_create_rectangle(sUiidCinemaTrans[1],-142,240,320,240-56);
 
-        ui_set_object_color(r1,0,0,0);
-        ui_set_object_color(r2,0,0,0);
+        ui_set_object_color(r1,0,0,0,255);
+        ui_set_object_color(r2,0,0,0,255);
 
         Vec3f start = {0,-56,0};
         Vec3f end = {0,0,0};
