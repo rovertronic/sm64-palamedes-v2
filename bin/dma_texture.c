@@ -5,6 +5,8 @@
 #include "sm64.h"
 #include "make_const_nonconst.h"
 
+#include "dma_model.inc.c"
+
 ALIGNED8 u8 dmaCoinTexture[] = {
     #include "actors/coin3D/coin1.i8.inc.c"
     ,
