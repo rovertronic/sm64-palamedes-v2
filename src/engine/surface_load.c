@@ -93,7 +93,7 @@ static struct Surface *alloc_surface(u32 dynamic) {
  * @param cellZ The Z position of the cell in which the surface resides
  * @param surface The surface to add
  */
-static void add_surface_to_cell(s32 dynamic, s32 cellX, s32 cellZ, struct Surface *surface) {
+static void add_surface_to_cell(s32 dynamic, s32 cellX, s32 cellZ, struct Surface *surface, f32 normalY) {
     struct SurfaceNode **list;
     s32 priority;
     s32 sortDir = 1; // highest to lowest, then insertion order (water and floors)
@@ -101,9 +101,9 @@ static void add_surface_to_cell(s32 dynamic, s32 cellX, s32 cellZ, struct Surfac
 
     if (SURFACE_IS_NEW_WATER(surface->type)) {
         listIndex = SPATIAL_PARTITION_WATER;
-    } else if (surface->normal.y > NORMAL_FLOOR_THRESHOLD) {
+    } else if (normalY > NORMAL_FLOOR_THRESHOLD) {
         listIndex = SPATIAL_PARTITION_FLOORS;
-    } else if (surface->normal.y < NORMAL_CEIL_THRESHOLD) {
+    } else if (normalY < NORMAL_CEIL_THRESHOLD) {
         listIndex = SPATIAL_PARTITION_CEILS;
         sortDir = -1; // lowest to highest, then insertion order
     } else {
@@ -210,6 +210,7 @@ static s32 upper_cell_index(s32 coord) {
 static void add_surface(struct Surface *surface, s32 dynamic) {
     s32 cellZ, cellX;
     s32 minX, maxX, minZ, maxZ;
+    f32 normalY = get_surface_normal(surface).y;
 
     min_max_3i(surface->vertex1[0], surface->vertex2[0], surface->vertex3[0], &minX, &maxX);
     min_max_3i(surface->vertex1[2], surface->vertex2[2], surface->vertex3[2], &minZ, &maxZ);
@@ -221,7 +222,7 @@ static void add_surface(struct Surface *surface, s32 dynamic) {
 
     for (cellZ = minCellZ; cellZ <= maxCellZ; cellZ++) {
         for (cellX = minCellX; cellX <= maxCellX; cellX++) {
-            add_surface_to_cell(dynamic, cellX, cellZ, surface);
+            add_surface_to_cell(dynamic, cellX, cellZ, surface, normalY);
         }
     }
 }
@@ -233,8 +234,7 @@ static void add_surface(struct Surface *surface, s32 dynamic) {
  * @param dynamic If the surface belongs to an object or not
  */
 static struct Surface *read_surface_data(TerrainData *vertexData, TerrainData **vertexIndices, u32 dynamic) {
-    Vec3t v[3];
-    Vec3f n;
+    Vec3f v[3];
     Vec3t offset;
     s16 min, max;
 
@@ -244,28 +244,20 @@ static struct Surface *read_surface_data(TerrainData *vertexData, TerrainData **
     vec3s_copy(v[1], (vertexData + offset[1]));
     vec3s_copy(v[2], (vertexData + offset[2]));
 
-    find_vector_perpendicular_to_plane(n, v[0], v[1], v[2]);
-
-    f32 mag = (sqr(n[0]) + sqr(n[1]) + sqr(n[2]));
-    // This will never need to be run for custom levels because Fast64 does this step before exporting.
-    // assert(mag >= NEAR_ZERO, "Denorm tri was found.");
 #ifdef ENABLE_VANILLA_LEVEL_SPECIFIC_CHECKS
-    if (mag < NEAR_ZERO) {
+    // Fast64 removes degenerate triangles from custom levels during export.
+    Vec3f n;
+    find_vector_perpendicular_to_plane(n, v[0], v[1], v[2]);
+    if (vec3_sumsq(n) < NEAR_ZERO) {
         return NULL;
     }
 #endif
-    mag = 1.0f / sqrtf(mag);
-    vec3_scale(n, mag);
 
     struct Surface *surface = alloc_surface(dynamic);
 
     vec3s_copy(surface->vertex1, v[0]);
     vec3s_copy(surface->vertex2, v[1]);
     vec3s_copy(surface->vertex3, v[2]);
-
-    surface->normal.x = n[0];
-    surface->normal.y = n[1];
-    surface->normal.z = n[2];
 
     min_max_3s(v[0][1], v[1][1], v[2][1], &min, &max);
     surface->lowerY = (min - SURFACE_VERTICAL_BUFFER);

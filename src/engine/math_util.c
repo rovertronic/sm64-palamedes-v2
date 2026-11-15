@@ -1263,3 +1263,12 @@ void quat_align_with_floor_fancy(Quat dest, Vec3f pos, s16 yaw) {
     Vec3f up = {0.f,1.f,0.f};
     quat_fromto(dest,yColumn,up);
 }
+
+void surface_normal_to_vec3f(Vec3f dst, const struct Surface *surf) {
+    Vec3f v1, v2, v3;
+    vec3_copy(v1, surf->vertex1);
+    vec3_copy(v2, surf->vertex2);
+    vec3_copy(v3, surf->vertex3);
+    find_vector_perpendicular_to_plane(dst, v1, v2, v3);
+    vec3f_normalize(dst);
+}

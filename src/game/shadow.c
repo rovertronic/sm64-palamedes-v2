@@ -289,10 +289,11 @@ Gfx *create_shadow_below_xyz(Vec3f pos, s16 shadowScale, u8 shadowSolidity, s8 s
         ny = 1.0f;
         nz = 0.0f;
     } else {
-        // Read the floor's normals.
-        nx = floor->normal.x;
-        ny = floor->normal.y;
-        nz = floor->normal.z;
+        // Calculate the floor's normal.
+        struct Normal normal = get_surface_normal(floor);
+        nx = normal.x;
+        ny = normal.y;
+        nz = normal.z;
 
         // No shadow if the y-normal is negative (an unexpected result).
         if (ny <= 0.0f) {

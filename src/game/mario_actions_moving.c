@@ -93,11 +93,12 @@ void check_ledge_climb_down(struct MarioState *m) {
             f32 floorHeight = find_floor(wallCols.x, wallCols.y, wallCols.z, &floor);
             if (floor != NULL && (wallCols.y - floorHeight) > 160.0f) {
                 wall = wallCols.walls[wallCols.numWalls - 1];
-                s16 wallAngle = SURFACE_YAW(wall);
+                struct Normal wallNormal = get_surface_normal(wall);
+                s16 wallAngle = atan2s(wallNormal.z, wallNormal.x);
 
                 if (abs_angle_diff(wallAngle, m->faceAngle[1]) < 0x4000) {
-                    m->pos[0] = wallCols.x - 20.0f * wall->normal.x;
-                    m->pos[2] = wallCols.z - 20.0f * wall->normal.z;
+                    m->pos[0] = wallCols.x - 20.0f * wallNormal.x;
+                    m->pos[2] = wallCols.z - 20.0f * wallNormal.z;
 
                     m->faceAngle[0] = 0x0;
                     m->faceAngle[1] = wallAngle + 0x8000;
@@ -137,8 +138,9 @@ void update_sliding_angle(struct MarioState *m, f32 accel, f32 lossFactor) {
     s16 facingDYaw;
 
     struct Surface *floor = m->floor;
-    s16 slopeAngle = atan2s(floor->normal.z, floor->normal.x);
-    f32 steepness = sqrtf(floor->normal.x * floor->normal.x + floor->normal.z * floor->normal.z);
+    struct Normal floorNormal = get_surface_normal(floor);
+    s16 slopeAngle = atan2s(floorNormal.z, floorNormal.x);
+    f32 steepness = sqrtf(floorNormal.x * floorNormal.x + floorNormal.z * floorNormal.z);
 
     m->slideVelX += accel * steepness * sins(slopeAngle);
     m->slideVelZ += accel * steepness * coss(slopeAngle);
@@ -258,7 +260,8 @@ void apply_slope_accel(struct MarioState *m) {
     f32 slopeAccel;
 
     struct Surface *floor = m->floor;
-    f32 steepness = sqrtf(sqr(floor->normal.x) + sqr(floor->normal.z));
+    struct Normal floorNormal = get_surface_normal(floor);
+    f32 steepness = sqrtf(sqr(floorNormal.x) + sqr(floorNormal.z));
 
     s16 floorDYaw = abs_angle_diff(m->floorYaw, m->faceAngle[1]);
 
@@ -347,7 +350,7 @@ void update_shell_speed(struct MarioState *m) {
         m->forwardVel += 1.1f;
     } else if (m->forwardVel <= targetSpeed) {
         m->forwardVel += 1.1f - m->forwardVel / 58.0f;
-    } else if (m->floor->normal.y >= 0.95f) {
+    } else if (get_surface_normal(m->floor).y >= 0.95f) {
         m->forwardVel -= 1.0f;
     }
 
@@ -425,7 +428,7 @@ void update_walking_speed(struct MarioState *m) {
     } else if (m->forwardVel <= targetSpeed) {
         // If accelerating
         m->forwardVel += 1.1f - m->forwardVel / 43.0f;
-    } else if (m->floor->normal.y >= 0.95f) {
+    } else if (get_surface_normal(m->floor).y >= 0.95f) {
         m->forwardVel -= 1.0f;
     }
 
@@ -495,7 +498,7 @@ s32 begin_braking_action(struct MarioState *m) {
         return set_mario_action(m, ACT_STANDING_AGAINST_WALL, 0);
     }
 
-    if (m->forwardVel >= 16.0f && m->floor->normal.y >= COS80) {
+    if (m->forwardVel >= 16.0f && get_surface_normal(m->floor).y >= COS80) {
         return set_mario_action(m, ACT_BRAKING, 0);
     }
 
@@ -1742,7 +1745,7 @@ s32 common_landing_cancels(struct MarioState *m, struct LandingAction *landingAc
     //! Everything here, including floor steepness, is checked before checking
     // if Mario is actually on the floor. This leads to e.g. remote sliding.
 
-    if (m->floor->normal.y < COS73) {
+    if (get_surface_normal(m->floor).y < COS73) {
         return mario_push_off_steep_floor(m, landingAction->verySteepAction, 0);
     }
 

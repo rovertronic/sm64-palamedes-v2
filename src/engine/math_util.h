@@ -242,7 +242,13 @@ ALWAYS_INLINE s32 roundf(f32 in) {
 #define vec3f_to_vec3s vec3_copy
 #define vec3f_to_vec3i vec3_copy
 
-#define surface_normal_to_vec3f(dst, surf) vec3f_copy((dst), &((surf)->normal.x))
+void surface_normal_to_vec3f(Vec3f dst, const struct Surface *surf);
+
+ALWAYS_INLINE static struct Normal get_surface_normal(const struct Surface *surf) {
+    Vec3f normal;
+    surface_normal_to_vec3f(normal, surf);
+    return (struct Normal) { normal[0], normal[1], normal[2] };
+}
 
 // Copy vector 'src' to vector 'dst' and add a scalar to the y component
 #define vec3_copy_y_off(dst, src, y) {  \

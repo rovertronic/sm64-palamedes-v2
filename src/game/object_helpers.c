@@ -973,7 +973,7 @@ static void cur_obj_move_xz(f32 steepSlopeNormalY, s32 careAboutEdgesAndSteepSlo
         } else if (deltaFloorHeight < -50.0f && (o->oMoveFlags & OBJ_MOVE_ON_GROUND)) {
             // Don't walk off an edge
             o->oMoveFlags |= OBJ_MOVE_HIT_EDGE;
-        } else if (intendedFloor->normal.y > steepSlopeNormalY) {
+        } else if (get_surface_normal(intendedFloor).y > steepSlopeNormalY) {
             // Allow movement onto a slope, provided it's not too steep
             o->oPosX = intendedX;
             o->oPosZ = intendedZ;
@@ -981,7 +981,7 @@ static void cur_obj_move_xz(f32 steepSlopeNormalY, s32 careAboutEdgesAndSteepSlo
             // We are likely trying to move onto a steep downward slope
             o->oMoveFlags |= OBJ_MOVE_HIT_EDGE;
         }
-    } else if (intendedFloor->normal.y > steepSlopeNormalY || o->oPosY > intendedFloorHeight) {
+    } else if (get_surface_normal(intendedFloor).y > steepSlopeNormalY || o->oPosY > intendedFloorHeight) {
         // Allow movement upward, provided either:
         // - The target floor is flat enough (e.g. walking up stairs)
         // - We are above the target floor (most likely in the air)
@@ -1333,10 +1333,10 @@ static s32 cur_obj_detect_steep_floor(s16 steepAngleDegrees) {
         if (intendedFloorHeight < FLOOR_LOWER_LIMIT_MISC) {
             o->oWallAngle = (o->oMoveAngleYaw + 0x8000);
             return TRUE;
-        } else if ((intendedFloor->normal.y < coss((s16)(steepAngleDegrees * (0x10000 / 360))))
+        } else if ((get_surface_normal(intendedFloor).y < coss((s16)(steepAngleDegrees * (0x10000 / 360))))
                    && (deltaFloorHeight > 0)
                    && (intendedFloorHeight > o->oPosY)) {
-            o->oWallAngle = atan2s(intendedFloor->normal.z, intendedFloor->normal.x);
+            o->oWallAngle = SURFACE_YAW(intendedFloor);
             return TRUE;
         } else {
             return FALSE;

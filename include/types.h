@@ -369,7 +369,6 @@ struct Surface {
     Vec3t vertex1;
     Vec3t vertex2;
     Vec3t vertex3;
-    struct Normal normal;
     struct Object *object;
 };
 

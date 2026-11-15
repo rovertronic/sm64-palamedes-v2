@@ -222,8 +222,11 @@ void bhv_bob_pit_bowling_ball_init(void) {
 void bhv_bob_pit_bowling_ball_loop(void) {
     object_step();
 
-    if ((o->oFloor != NULL) && (o->oFloor->normal.x == 0) && (o->oFloor->normal.z == 0)) {
-        o->oForwardVel = 28.0f;
+    if (o->oFloor != NULL) {
+        struct Normal normal = get_surface_normal(o->oFloor);
+        if (normal.x == 0 && normal.z == 0) {
+            o->oForwardVel = 28.0f;
+        }
     }
     bowling_ball_set_hitbox();
     set_camera_shake_from_point(SHAKE_POS_BOWLING_BALL, o->oPosX, o->oPosY, o->oPosZ);

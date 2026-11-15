@@ -765,7 +765,7 @@ s16 look_down_slopes(s16 camYaw) {
 
     if (floor != NULL) {
         if (floor->type != SURFACE_WALL_MISC && floorDY > 0) {
-            if (floor->normal.z == 0.f && floorDY < 100.f) {
+            if (get_surface_normal(floor).z == 0.f && floorDY < 100.f) {
                 pitch = 0x05B0;
             } else {
                 // Add the slope's angle of declination to the pitch
@@ -6478,7 +6478,7 @@ s32 rotate_camera_around_walls(UNUSED struct Camera *c, Vec3f cPos, s16 *avoidYa
                     status = 1;
                     wall = colData.walls[colData.numWalls - 1];
                     // wallYaw is parallel to the wall, not perpendicular
-                    wallYaw = atan2s(wall->normal.z, wall->normal.x) + DEGREES(90);
+                    wallYaw = SURFACE_YAW(wall) + DEGREES(90);
                     // Calculate the avoid direction. The function returns the opposite direction so add 180
                     // degrees.
                     *avoidYaw = calc_avoid_yaw(yawFromMario, wallYaw) + DEGREES(180);
@@ -6494,7 +6494,7 @@ s32 rotate_camera_around_walls(UNUSED struct Camera *c, Vec3f cPos, s16 *avoidYa
 
             if (find_wall_collisions(&colData) != 0) {
                 wall = colData.walls[colData.numWalls - 1];
-                horWallNorm = atan2s(wall->normal.z, wall->normal.x);
+                horWallNorm = SURFACE_YAW(wall);
                 wallYaw = horWallNorm + DEGREES(90);
                 // If Mario would be blocked by the surface, then avoid it
                 if ((is_range_behind_surface(sMarioCamState->pos, cPos, wall, yawRange, SURFACE_WALL_MISC) == 0)

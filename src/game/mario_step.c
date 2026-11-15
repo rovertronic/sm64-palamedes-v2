@@ -20,9 +20,8 @@ struct Surface gWaterSurfacePseudoFloor = {
     .lowerY = -SURFACE_VERTICAL_BUFFER,
     .upperY =  SURFACE_VERTICAL_BUFFER,
     .vertex1 = { 0, 0, 0 },            
-    .vertex2 = { 0, 0, 0 },            
-    .vertex3 = { 0, 0, 0 },            
-    .normal = { 0.0f, 1.0f, 0.0f },          
+    .vertex2 = { 0, 0, 1 },
+    .vertex3 = { 1, 0, 0 },
     .object = NULL,                    
     .material = SURFMAT_STONE,
 };
@@ -350,8 +349,9 @@ s32 perform_ground_step(struct MarioState *m) {
     set_mario_wall(m, NULL);
 
     for (i = 0; i < 4; i++) {
-        intendedPos[0] = m->pos[0] + m->floor->normal.y * (m->vel[0] / numSteps);
-        intendedPos[2] = m->pos[2] + m->floor->normal.y * (m->vel[2] / numSteps);
+        f32 normalY = get_surface_normal(m->floor).y;
+        intendedPos[0] = m->pos[0] + normalY * (m->vel[0] / numSteps);
+        intendedPos[2] = m->pos[2] + normalY * (m->vel[2] / numSteps);
         intendedPos[1] = m->pos[1];
 
         stepResult = perform_ground_quarter_step(m, intendedPos);
@@ -370,9 +370,6 @@ s32 perform_ground_step(struct MarioState *m) {
     return stepResult;
 }
 
-// Horizontal dot product of surface normal
-#define hdot_surf(surf, vec) (((surf)->normal.x * (vec)[0]) + ((surf)->normal.z * (vec)[2]))
-
 struct Surface *check_ledge_grab(struct MarioState *m, struct Surface *prevWall, struct Surface *wall, Vec3f intendedPos, Vec3f nextPos, Vec3f ledgePos, struct Surface **ledgeFloor) {
     struct Surface *returnedWall = wall;
     if (m->vel[1] > 0.0f || wall == NULL) {
@@ -383,8 +380,12 @@ struct Surface *check_ledge_grab(struct MarioState *m, struct Surface *prevWall,
         prevWall = wall;
     }
 
+    struct Normal wallNormal = get_surface_normal(wall);
+    struct Normal prevWallNormal = (prevWall == wall) ? wallNormal : get_surface_normal(prevWall);
+
     // Return the already grabbed wall if Mario is moving into it more than the newly tested wall.
-    if (hdot_surf(prevWall, m->vel) < hdot_surf(wall, m->vel)) {
+    if ((prevWallNormal.x * m->vel[0] + prevWallNormal.z * m->vel[2])
+        < (wallNormal.x * m->vel[0] + wallNormal.z * m->vel[2])) {
         returnedWall = prevWall;
     }
 
@@ -396,15 +397,15 @@ struct Surface *check_ledge_grab(struct MarioState *m, struct Surface *prevWall,
         returnedWall = prevWall;
     }
 
-    ledgePos[0] = nextPos[0] - (wall->normal.x * 60.0f);
-    ledgePos[2] = nextPos[2] - (wall->normal.z * 60.0f);
+    ledgePos[0] = nextPos[0] - (wallNormal.x * 60.0f);
+    ledgePos[2] = nextPos[2] - (wallNormal.z * 60.0f);
     ledgePos[1] = find_floor(ledgePos[0], nextPos[1] + 160.0f, ledgePos[2], ledgeFloor);
 
     if (ledgeFloor == NULL
         || (*ledgeFloor) == NULL
         || ledgePos[1] < nextPos[1] + 100.0f
 #ifdef DONT_LEDGE_GRAB_STEEP_SLOPES
-        || (*ledgeFloor)->normal.y < COS25 // H64 TODO: check if floor is actually slippery
+        || get_surface_normal(*ledgeFloor).y < COS25 // H64 TODO: check if floor is actually slippery
 #endif
     ) {
         return NULL;
@@ -412,8 +413,6 @@ struct Surface *check_ledge_grab(struct MarioState *m, struct Surface *prevWall,
 
     return returnedWall;
 }
-
-#undef hdot_surf
 
 s32 bonk_or_hit_lava_wall(struct MarioState *m, struct WallCollisionData *wallData) {
     s16 i;

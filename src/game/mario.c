@@ -431,7 +431,7 @@ s32 mario_get_floor_class(struct MarioState *m) {
     }
 
     // Crawling allows Mario to not slide on certain steeper surfaces.
-    if (m->action == ACT_CRAWLING && m->floor->normal.y > 0.5f && floorClass == SURFACE_CLASS_DEFAULT) {
+    if (m->action == ACT_CRAWLING && get_surface_normal(m->floor).y > 0.5f && floorClass == SURFACE_CLASS_DEFAULT) {
         floorClass = SURFACE_CLASS_NOT_SLIPPERY;
     }
 
@@ -554,7 +554,7 @@ s32 mario_facing_downhill(struct MarioState *m, s32 turnYaw) {
 u32 mario_floor_is_slippery(struct MarioState *m) {
     f32 normY;
 
-    if (((m->area->terrainType & TERRAIN_MASK) == TERRAIN_SLIDE  && m->floor->normal.y < COS1) || (m->floor->type == SURFACE_SUPER_SLIPPERY)) {
+    if (((m->area->terrainType & TERRAIN_MASK) == TERRAIN_SLIDE  && get_surface_normal(m->floor).y < COS1) || (m->floor->type == SURFACE_SUPER_SLIPPERY)) {
         return TRUE;
     }
 
@@ -565,7 +565,7 @@ u32 mario_floor_is_slippery(struct MarioState *m) {
         case SURFACE_CLASS_NOT_SLIPPERY:  normY = 0.0f;  break;
     }
 
-    return m->floor->normal.y <= normY;
+    return get_surface_normal(m->floor).y <= normY;
 }
 
 /**
@@ -575,7 +575,7 @@ s32 mario_floor_is_slope(struct MarioState *m) {
     f32 normY;
 
     if (((m->area->terrainType & TERRAIN_MASK) == TERRAIN_SLIDE
-        && m->floor->normal.y < COS1) || (m->floor->type == SURFACE_SUPER_SLIPPERY)) {
+        && get_surface_normal(m->floor).y < COS1) || (m->floor->type == SURFACE_SUPER_SLIPPERY)) {
         return TRUE;
     }
 
@@ -586,7 +586,7 @@ s32 mario_floor_is_slope(struct MarioState *m) {
         case SURFACE_CLASS_NOT_SLIPPERY:  normY = COS20; break;
     }
 
-    return m->floor->normal.y <= normY;
+    return get_surface_normal(m->floor).y <= normY;
 }
 
 /**
@@ -615,7 +615,7 @@ s32 mario_floor_is_steep(struct MarioState *m) {
             case SURFACE_CLASS_NOT_SLIPPERY:  normY = COS30; break;
         }
 
-        return m->floor->normal.y <= normY;
+        return get_surface_normal(m->floor).y <= normY;
     }
 
     return FALSE;
@@ -1238,8 +1238,9 @@ void debug_print_speed_action_normal(struct MarioState *m) {
     f32 floor_nY;
 
     if (gShowDebugText) {
-        steepness = sqrtf(sqr(m->floor->normal.x) + sqr(m->floor->normal.z));
-        floor_nY = m->floor->normal.y;
+        struct Normal normal = get_surface_normal(m->floor);
+        steepness = sqrtf(sqr(normal.x) + sqr(normal.z));
+        floor_nY = normal.y;
 
         print_text_fmt_int(210, 88, "ANG %d", (atan2s(floor_nY, steepness) * 180.0f) / 32768.0f);
 
@@ -1326,7 +1327,7 @@ void update_mario_geometry_inputs(struct MarioState *m) {
     m->waterLevel = find_water_level(m->pos[0], m->pos[2]);
 
     if (m->floor != NULL) {
-        m->floorYaw = atan2s(m->floor->normal.z, m->floor->normal.x);
+        m->floorYaw = SURFACE_YAW(m->floor);
         m->terrainSoundAddend = mario_get_terrain_sound_addend(m);
 
         if ((m->pos[1] > m->waterLevel - 40) && mario_floor_is_slippery(m)) {

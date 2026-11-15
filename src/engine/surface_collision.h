@@ -23,7 +23,8 @@
 
 f32 get_surface_height_at_location(s32 x, s32 z, struct Surface *surf);
 
-#define SURFACE_YAW(s) (atan2s(((s)->normal.z), ((s)->normal.x)))
+s16 get_surface_yaw(const struct Surface *surf);
+#define SURFACE_YAW(s) get_surface_yaw(s)
 
 enum RaycastFlags {
     RAYCAST_FIND_FLOOR = (1 << 0),

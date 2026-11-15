@@ -11,43 +11,24 @@
 #include "game/puppyprint.h"
 
 void get_surface_normal_oo(f32 normal[4], struct Surface *surf) {
-    f32 nx, ny, nz;
-    f32 mag;
+    surface_normal_to_vec3f(normal, surf);
+    normal[3] = -vec3_dot(normal, surf->vertex1);
+}
 
-    register s32 x1, y1, z1;
-    register s32 x2, y2, z2;
-    register s32 x3, y3, z3;
+s16 get_surface_yaw(const struct Surface *surf) {
+    Vec3f normal;
+    surface_normal_to_vec3f(normal, surf);
+    return atan2s(normal[2], normal[0]);
+}
 
-    x1 = surf->vertex1[0];
-    y1 = surf->vertex1[1];
-    z1 = surf->vertex1[2];
-    x2 = surf->vertex2[0];
-    y2 = surf->vertex2[1];
-    z2 = surf->vertex2[2];
-    x3 = surf->vertex3[0];
-    y3 = surf->vertex3[1];
-    z3 = surf->vertex3[2];
-
-    // (v2 - v1) x (v3 - v2)
-    nx = (y2 - y1) * (z3 - z2) - (z2 - z1) * (y3 - y2);
-    ny = (z2 - z1) * (x3 - x2) - (x2 - x1) * (z3 - z2);
-    nz = (x2 - x1) * (y3 - y2) - (y2 - y1) * (x3 - x2);
-    mag = sqrtf(nx * nx + ny * ny + nz * nz);
-    mag = (f32)(1.0f / mag);
-    nx *= mag;
-    ny *= mag;
-    nz *= mag;
-
-    normal[0] = nx;
-    normal[1] = ny;
-    normal[2] = nz;
-    normal[3] = -(nx * x1 + ny * y1 + nz * z1);
+ALWAYS_INLINE static f32 surface_height_from_normal(s32 x, s32 z, const f32 normal[4]) {
+    return -(x * normal[0] + normal[2] * z + normal[3]) / normal[1];
 }
 
 f32 get_surface_height_at_location(s32 x, s32 z, struct Surface *surf) {
     f32 normal[4];
     get_surface_normal_oo(normal, surf);
-    return -(x * normal[0] + normal[2] * z + normal[3]) / normal[1];
+    return surface_height_from_normal(x, z, normal);
 }
 
 /**************************************************
@@ -183,13 +164,13 @@ static s32 find_wall_collisions_from_list(struct SurfaceNode *surfaceNode, struc
             pos[2] += (d01 *= invDenom);
             margin_radius += 0.01f;
 
-            if ((d00 * surf->normal.x) + (d01 * surf->normal.z) < (corner_threshold * offset)) {
+            if ((d00 * normal[0]) + (d01 * normal[2]) < (corner_threshold * offset)) {
                 continue;
             }
         } else {
             // Update pos
-            pos[0] += surf->normal.x * (radius - offset);
-            pos[2] += surf->normal.z * (radius - offset);
+            pos[0] += normal[0] * (radius - offset);
+            pos[2] += normal[2] * (radius - offset);
         }
 
         // Has collision
@@ -525,8 +506,8 @@ static struct Surface *find_floor_from_list(struct SurfaceNode *surfaceNode, s32
 }
 
 // Generic triangle bounds func
-ALWAYS_INLINE static s32 check_within_bounds_y_norm(s32 x, s32 z, struct Surface *surf) {
-    if (surf->normal.y >= NORMAL_FLOOR_THRESHOLD) return check_within_floor_triangle_bounds(x, z, surf);
+ALWAYS_INLINE static s32 check_within_bounds_y_norm(s32 x, s32 z, struct Surface *surf, f32 normalY) {
+    if (normalY >= NORMAL_FLOOR_THRESHOLD) return check_within_floor_triangle_bounds(x, z, surf);
     return check_within_ceil_triangle_bounds(x, z, surf, 0);
 }
 
@@ -551,11 +532,15 @@ struct Surface *find_water_floor_from_list(struct SurfaceNode *surfaceNode, s32 
         bottomSurfaceNode = bottomSurfaceNode->next;
 
         // skip wall angled water
-        if (surf->type != SURFACE_NEW_WATER_BOTTOM || absf(surf->normal.y) < NORMAL_FLOOR_THRESHOLD) continue;
+        if (surf->type != SURFACE_NEW_WATER_BOTTOM) continue;
 
-        if (!check_within_bounds_y_norm(x, z, surf)) continue;
+        f32 normal[4];
+        get_surface_normal_oo(normal, surf);
+        if (absf(normal[1]) < NORMAL_FLOOR_THRESHOLD) continue;
 
-        curBottomHeight = get_surface_height_at_location(x, z, surf);
+        if (!check_within_bounds_y_norm(x, z, surf, normal[1])) continue;
+
+        curBottomHeight = surface_height_from_normal(x, z, normal);
 
         if (curBottomHeight < y + buffer) {
             continue;
@@ -571,11 +556,15 @@ struct Surface *find_water_floor_from_list(struct SurfaceNode *surfaceNode, s32 
         topSurfaceNode = topSurfaceNode->next;
 
         // skip water tops or wall angled water bottoms
-        if (surf->type == SURFACE_NEW_WATER_BOTTOM || absf(surf->normal.y) < NORMAL_FLOOR_THRESHOLD) continue;
+        if (surf->type == SURFACE_NEW_WATER_BOTTOM) continue;
 
-        if (!check_within_bounds_y_norm(x, z, surf)) continue;
+        f32 normal[4];
+        get_surface_normal_oo(normal, surf);
+        if (absf(normal[1]) < NORMAL_FLOOR_THRESHOLD) continue;
 
-        curHeight = get_surface_height_at_location(x, z, surf);
+        if (!check_within_bounds_y_norm(x, z, surf, normal[1])) continue;
+
+        curHeight = surface_height_from_normal(x, z, normal);
 
         if (bottomHeight != FLOOR_LOWER_LIMIT && curHeight > bottomHeight) continue;
 

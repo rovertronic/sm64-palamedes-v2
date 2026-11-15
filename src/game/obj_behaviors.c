@@ -141,9 +141,10 @@ s8 obj_find_wall(f32 objNewX, f32 objY, f32 objNewZ, f32 objVelX, f32 objVelZ) {
         o->oPosY = hitbox.y;
         o->oPosZ = hitbox.z;
 
-        wall_nX = hitbox.walls[0]->normal.x;
-        wall_nY = hitbox.walls[0]->normal.y;
-        wall_nZ = hitbox.walls[0]->normal.z;
+        struct Normal normal = get_surface_normal(hitbox.walls[0]);
+        wall_nX = normal.x;
+        wall_nY = normal.y;
+        wall_nZ = normal.z;
 
         objVelXCopy = objVelX;
         objVelZCopy = objVelZ;
@@ -169,9 +170,10 @@ s8 turn_obj_away_from_steep_floor(struct Surface *objFloor, f32 floorY, f32 objV
         return FALSE;
     }
 
-    floor_nX = objFloor->normal.x;
-    floor_nY = objFloor->normal.y;
-    floor_nZ = objFloor->normal.z;
+    struct Normal normal = get_surface_normal(objFloor);
+    floor_nX = normal.x;
+    floor_nY = normal.y;
+    floor_nZ = normal.z;
 
     // If the floor is steep and we are below it (i.e. walking into it), turn away from the floor.
     if (floor_nY < 0.5f && floorY > o->oPosY) {
@@ -221,9 +223,10 @@ void calc_obj_friction(f32 *objFriction, f32 floor_nY) {
  * Updates an objects speed for gravity and updates Y position.
  */
 void calc_new_obj_vel_and_pos_y(struct Surface *objFloor, f32 objFloorY, f32 objVelX, f32 objVelZ) {
-    f32 floor_nX = objFloor->normal.x;
-    f32 floor_nY = objFloor->normal.y;
-    f32 floor_nZ = objFloor->normal.z;
+    struct Normal normal = get_surface_normal(objFloor);
+    f32 floor_nX = normal.x;
+    f32 floor_nY = normal.y;
+    f32 floor_nZ = normal.z;
     f32 objFriction;
 
     // Caps vertical speed with a "terminal velocity".
@@ -269,9 +272,10 @@ void calc_new_obj_vel_and_pos_y(struct Surface *objFloor, f32 objFloorY, f32 obj
 }
 
 void calc_new_obj_vel_and_pos_y_underwater(struct Surface *objFloor, f32 floorY, f32 objVelX, f32 objVelZ, f32 waterY) {
-    f32 floor_nX = objFloor->normal.x;
-    f32 floor_nY = objFloor->normal.y;
-    f32 floor_nZ = objFloor->normal.z;
+    struct Normal normal = get_surface_normal(objFloor);
+    f32 floor_nX = normal.x;
+    f32 floor_nY = normal.y;
+    f32 floor_nZ = normal.z;
 
     f32 netYAccel = (1.0f - o->oBuoyancy) * (-1.0f * o->oGravity);
     o->oVelY -= netYAccel;
@@ -402,7 +406,8 @@ s16 object_step(void) {
     obj_update_pos_vel_xz();
 
     if (sObjFloor && (o->oPosY >= floorY) && (o->oPosY < floorY + 37)) {
-        obj_orient_graph(o, sObjFloor->normal.x, sObjFloor->normal.y, sObjFloor->normal.z);
+        struct Normal normal = get_surface_normal(sObjFloor);
+        obj_orient_graph(o, normal.x, normal.y, normal.z);
     }
 
     if ((s32) o->oPosY == (s32) floorY) {

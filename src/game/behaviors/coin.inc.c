@@ -115,7 +115,7 @@ void bhv_coin_loop(void) {
 
             case BOUNCING_COIN_ACT_BOUNCING:
                 o->oBounciness = 0;
-                if (floor->normal.y < 0.9f) {
+                if (get_surface_normal(floor).y < 0.9f) {
                     s16 targetYaw = SURFACE_YAW(floor);
                     cur_obj_rotate_yaw_toward(targetYaw, 0x400);
                 }

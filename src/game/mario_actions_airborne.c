@@ -113,7 +113,7 @@ s32 should_get_stuck_in_ground(struct MarioState *m) {
 
     if (floor != NULL && (terrainType == TERRAIN_SNOW || terrainType == TERRAIN_SAND)
         && type != SURFACE_BURNING && SURFACE_IS_NOT_HARD(type)) {
-        if (!(flags & SURFACE_FLAG_DYNAMIC) && m->peakHeight - m->pos[1] > 1000.0f && floor->normal.y >= COS30) {
+        if (!(flags & SURFACE_FLAG_DYNAMIC) && m->peakHeight - m->pos[1] > 1000.0f && get_surface_normal(floor).y >= COS30) {
             return TRUE;
         }
     }
@@ -1386,7 +1386,7 @@ s32 act_butt_slide_air(struct MarioState *m) {
 
     switch (perform_air_step(m, AIR_STEP_CHECK_NONE)) {
         case AIR_STEP_LANDED:
-            if (m->actionState == 0 && m->vel[1] < 0.0f && m->floor->normal.y >= COS10) {
+            if (m->actionState == 0 && m->vel[1] < 0.0f && get_surface_normal(m->floor).y >= COS10) {
                 m->vel[1] = -m->vel[1] / 2.0f;
                 m->actionState = 1;
             } else {
@@ -1425,7 +1425,7 @@ s32 act_hold_butt_slide_air(struct MarioState *m) {
 
     switch (perform_air_step(m, AIR_STEP_CHECK_NONE)) {
         case AIR_STEP_LANDED:
-            if (m->actionState == ACT_STATE_BUTT_SLIDE_AIR_SMALL_BOUNCE && m->vel[1] < 0.0f && m->floor->normal.y >= COS10) {
+            if (m->actionState == ACT_STATE_BUTT_SLIDE_AIR_SMALL_BOUNCE && m->vel[1] < 0.0f && get_surface_normal(m->floor).y >= COS10) {
                 m->vel[1] = -m->vel[1] / 2.0f;
                 m->actionState = 1;
             } else {

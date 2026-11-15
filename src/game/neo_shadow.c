@@ -76,9 +76,7 @@ void neoshadow_cast(neoShadow * s, struct Object * obj) {
         s->pos[1] = h;
         s->pos[2] = obj->oPosZ;
 
-        s->normal[0] = floor->normal.x;
-        s->normal[1] = floor->normal.y;
-        s->normal[2] = floor->normal.z;
+        surface_normal_to_vec3f(s->normal, floor);
 
         f32 baseScale = (f32)s->baseScale;
         f32 scale = neoshadow_scale_with_distance(obj->oPosY - h) * baseScale;
