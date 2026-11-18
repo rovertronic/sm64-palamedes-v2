@@ -19,7 +19,8 @@ enum {
     VOLUME_TYPE_WARP,
     VOLUME_TYPE_SHADOW,
     VOLUME_TYPE_MUSIC,
-    VOLUME_TYPE_BRIDGE
+    VOLUME_TYPE_BRIDGE,
+    VOLUME_TYPE_DMA_MODEL,
 };
 
 CubicVolume * cubic_volume_add(void);
