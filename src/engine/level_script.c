@@ -12,6 +12,7 @@
 #include "game/debug.h"
 #include "game/game_init.h"
 #include "game/mario.h"
+#include "game/dma_model_streaming.h"
 #include "game/memory.h"
 #include "game/object_helpers.h"
 #include "game/object_list_processor.h"
@@ -384,6 +385,7 @@ static void level_cmd_clear_level(void) {
         }
     }
 
+    dma_model_reset();
     clear_objects();
     clear_area_graph_nodes();
     clear_areas();

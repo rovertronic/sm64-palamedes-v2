@@ -892,7 +892,9 @@ void thread5_game_loop(UNUSED void *arg) {
             select_gfx_pool();
             init_rcp(CLEAR_ZBUFFER);
 
+            dma_model_collision_render_begin();
             render_game();
+            dma_model_collision_render_end();
 
             end_master_display_list();
             alloc_display_list(0);
@@ -961,7 +963,9 @@ void thread10_graphics_loop(UNUSED void *arg) {
         select_gfx_pool();
         init_rcp(CLEAR_ZBUFFER);
 
+        dma_model_collision_render_begin();
         render_game();
+        dma_model_collision_render_end();
 
         end_master_display_list();
         alloc_display_list(0);

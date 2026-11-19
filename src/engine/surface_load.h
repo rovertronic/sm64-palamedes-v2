@@ -39,6 +39,25 @@ extern void *gCurrStaticSurfacePoolEnd;
 extern void *gDynamicSurfacePoolEnd;
 extern u32 gTotalStaticSurfaceData;
 
+/* Persistent streamed terrain. Measuring/building touches only caller-owned
+ * memory and may run on the asset worker. Attach/detach run on the game thread
+ * with rendering excluded; they never allocate from the dynamic/level pools. */
+struct StreamedCollision;
+struct StreamedCollisionInfo {
+    u32 surfaces;
+    u32 nodes;
+    u32 bytes;
+};
+
+s32 streamed_collision_measure(const Collision *data, const Collision *end,
+                               const Vec3f offset, struct StreamedCollisionInfo *info);
+struct StreamedCollision *streamed_collision_build(void *memory,
+    const struct StreamedCollisionInfo *info, const Collision *data, const Collision *end,
+    const Vec3f offset);
+void streamed_collision_attach(struct StreamedCollision *collision);
+void streamed_collision_detach(struct StreamedCollision *collision);
+void streamed_collision_reset(void);
+
 void alloc_surface_pools(void);
 #ifdef NO_SEGMENTED_MEMORY
 u32 get_area_terrain_size(TerrainData *data);

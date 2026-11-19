@@ -510,6 +510,8 @@ struct PlayerGeometry {
     /*0x30*/ f32 waterHeight;
 };
 
+extern struct PlayerGeometry sMarioGeometry;
+
 /**
  * Point used in transitioning between camera modes and C-Up.
  */

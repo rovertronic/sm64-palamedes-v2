@@ -32,6 +32,10 @@ def generate(kind, exports):
         if header.is_file():
             lines.append('#include "{}"'.format(header.as_posix()))
         lines.append('#include "{}"'.format(exports[0].as_posix()))
+        collision = exports[0].parent / "collision.inc.c"
+        if collision.is_file():
+            lines.append('#include "surface_terrains.h"')
+            lines.append('#include "{}"'.format(collision.as_posix()))
         return "\n".join(lines) + "\n"
 
     seen = set()
@@ -49,6 +53,14 @@ def generate(kind, exports):
                 lines.append('#include "{}"'.format(header.as_posix()))
             for suffix in ("Start", "RomStart", "RomEnd"):
                 lines.append("extern u8 {}{}[];".format(prefix, suffix))
+            collision = export.parent / "collision.inc.c"
+            if collision.is_file():
+                # Fast64 may put collision declarations in a separate header.
+                # Preserve the export and supply its public array declarations.
+                for qualifier, symbol in re.findall(
+                    r"\b(const\s+)?Collision\s+([A-Za-z_]\w*)\s*\[", collision.read_text()
+                ):
+                    lines.append("extern {}Collision {}[];".format(qualifier or "", symbol))
         else:
             obj = (export.parent / "streamed_model.o").as_posix()
             lines += [

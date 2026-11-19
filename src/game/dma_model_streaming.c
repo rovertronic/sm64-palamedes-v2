@@ -3,38 +3,86 @@
 #include "dma_model_streaming.h"
 #include "cubic_volume.h"
 #include "engine/graph_node.h"
+#include "engine/surface_load.h"
 #include "level_update.h"
 #include "main.h"
 #include "memory.h"
+#include "object_list_processor.h"
 #include "segment_symbols.h"
 #include "assets/models/streaming_assets.h"
+#include "debug_tracker.h"
 
-#define DMA_MODEL_POOL_SIZE 100000
+#define DMA_MODEL_POOL_SIZE 1000000
 #define DMA_MODEL_SEGMENT 0x0F
 
 /* The build discovers Fast64 exports and generates each model's ROM range.
  * All models share segment 0x0F; exports require no streaming-specific edits. */
 const struct DmaModelEntry sDmaModelTable[DMA_MODEL_COUNT] = {
-    [0] = DMA_MODEL(test, test_test_mesh),
+    [0] = DMA_MODEL_WITH_COLLISION_AT(test, test_test_mesh, test_collision, 3089, 1634, 6871),
     [1] = DMA_MODEL(cruelty, cruelty_curelty_mesh),
 };
 
 ALIGNED16 u8 sDmaModelMemoryPool[DMA_MODEL_POOL_SIZE];
 Gfx * volatile sDmaLoadedDlTable[DMA_MODEL_COUNT];
+volatile enum DmaModelStatus sDmaModelStatus[DMA_MODEL_COUNT];
+static ALIGNED16 u8 sDmaCollisionMemoryPool[DMA_MODEL_COLLISION_POOL_SIZE];
 
 static OSThread sAssetStreamingThread;
 static ALIGNED16 u8 sAssetStreamingStack[THREAD11_STACK];
 static OSMesgQueue sAssetStreamingQueue;
 static OSMesg sAssetStreamingMessages[1];
+static OSMesgQueue sCollisionIdleQueue;
+static OSMesg sCollisionIdleMessages[1];
 static volatile u32 sWantedMask;
 static volatile u32 sBuildingMask;
 static volatile u32 sSubmittedMask;
+/* A prepared asset stays owned by the game thread until it has detached its
+ * collision. The worker may not recycle either allocation before that ack. */
+static volatile u32 sReadyMask;
+static volatile u32 sCollisionReaders;
+static u32 sFailedMask;
+static Gfx *sPreparedDl[DMA_MODEL_COUNT];
+static struct StreamedCollision *sPreparedCollision[DMA_MODEL_COUNT];
 static s32 sInitialized;
 /* Only the worker modifies the allocator. Retired blocks remain allocated
  * while either a CPU-built list or a submitted RCP task references them. */
 static u32 sModelOffset[DMA_MODEL_COUNT];
 static u32 sModelSize[DMA_MODEL_COUNT];
+static u32 sCollisionOffset[DMA_MODEL_COUNT];
+static u32 sCollisionSize[DMA_MODEL_COUNT];
+static struct StreamedCollisionInfo sCollisionInfo[DMA_MODEL_COUNT];
 static u32 sVolumeMask;
+static f32 sModelPoolUsedPercent;
+static f32 sCollisionPoolUsedPercent;
+static s32 sDebugModel0Status;
+static s32 sDebugModel1Status;
+static s32 sDebugPreparedMask;
+static s32 sDebugCollisionReaders;
+
+static void dma_model_debug_pool_usage(void) {
+    u32 modelBytes = 0, collisionBytes = 0;
+    int id;
+    OSIntMask mask = osSetIntMask(OS_IM_NONE);
+    /* Count every reserved allocation, including pending loads and retired
+     * blocks still waiting for collision/graphics references to be released. */
+    for (id = 0; id < DMA_MODEL_COUNT; id++) {
+        modelBytes += sModelSize[id];
+        collisionBytes += sCollisionSize[id];
+    }
+    sDebugModel0Status = sDmaModelStatus[0];
+    sDebugModel1Status = sDmaModelStatus[1];
+    sDebugPreparedMask = sReadyMask;
+    sDebugCollisionReaders = sCollisionReaders;
+    osSetIntMask(mask);
+    sModelPoolUsedPercent = 100.0f * modelBytes / sizeof(sDmaModelMemoryPool);
+    sCollisionPoolUsedPercent = 100.0f * collisionBytes / sizeof(sDmaCollisionMemoryPool);
+    debug_f32(&sModelPoolUsedPercent, "Model pool used *");
+    debug_f32(&sCollisionPoolUsedPercent, "Collision pool used *");
+    debug_s32(&sDebugModel0Status, "Stream 0 state");
+    debug_s32(&sDebugModel1Status, "Stream 1 state");
+    debug_s32(&sDebugPreparedMask, "Stream prepared");
+    debug_s32(&sDebugCollisionReaders, "Stream CPU readers");
+}
 
 static void dma_model_wake(void) {
     if (sInitialized) {
@@ -80,18 +128,32 @@ void dma_model_reset(void) {
         sDmaLoadedDlTable[id] = NULL;
     }
     osSetIntMask(mask);
+    /* Level teardown has already stopped rendering. Release partition links
+     * before the level heap containing the base terrain is popped. For a
+     * reset during rendering, the next safe game update performs the detach. */
+    if (sCollisionReaders == 0) {
+        for (id = 0; id < DMA_MODEL_COUNT; id++) {
+            if (sReadyMask & (1U << id)) {
+                streamed_collision_detach(sPreparedCollision[id]);
+                sPreparedCollision[id] = NULL;
+                sPreparedDl[id] = NULL;
+                sDmaModelStatus[id] = DMA_MODEL_STATUS_UNLOADED;
+            }
+        }
+        sReadyMask = 0;
+    }
     dma_model_wake();
 }
 
 /* First fit without moving live models or depending on the level's heap. */
-static s32 dma_model_allocate(u32 size) {
+static s32 dma_stream_allocate(u32 size, u32 poolSize, const u32 *offsets, const u32 *sizes) {
     u32 offset = 0;
     int id;
-    while (offset + size <= sizeof(sDmaModelMemoryPool)) {
+    while (size <= poolSize && offset <= poolSize - size) {
         for (id = 0; id < DMA_MODEL_COUNT; id++) {
-            if (sModelSize[id] != 0 && offset < sModelOffset[id] + sModelSize[id]
-                && offset + size > sModelOffset[id]) {
-                offset = sModelOffset[id] + sModelSize[id];
+            if (sizes[id] != 0 && offset < offsets[id] + sizes[id]
+                && offset + size > offsets[id]) {
+                offset = offsets[id] + sizes[id];
                 break;
             }
         }
@@ -106,55 +168,112 @@ static void thread11_asset_streaming(UNUSED void *arg) {
     int id;
     while (TRUE) {
         osRecvMesg(&sAssetStreamingQueue, NULL, OS_MESG_BLOCK);
-        /* Reclaim first, so outgoing models make room for incoming ones. */
+        /* Collision memory is returned only after a game-thread detach.
+         * Display data additionally waits for CPU-built/submitted RCP lists. */
         for (id = 0; id < DMA_MODEL_COUNT; id++) {
             u32 bit = 1U << id;
             OSIntMask mask = osSetIntMask(OS_IM_NONE);
+            /* A detach can be followed by a new request before this worker
+             * runs. Reclaim the acknowledged collision block in either case. */
+            if (!(sReadyMask & bit)) {
+                sCollisionSize[id] = 0;
+                sPreparedCollision[id] = NULL;
+                if ((!(sWantedMask & bit) || (sFailedMask & bit))
+                    && !((sBuildingMask | sSubmittedMask) & bit)) {
+                    sModelSize[id] = 0;
+                    sCollisionInfo[id].bytes = 0;
+                }
+            }
             if (!(sWantedMask & bit)) {
                 sDmaLoadedDlTable[id] = NULL;
-                if (!((sBuildingMask | sSubmittedMask) & bit)) {
-                    sModelSize[id] = 0;
+                sFailedMask &= ~bit;
+                if (!(sReadyMask & bit)) {
+                    sDmaModelStatus[id] = DMA_MODEL_STATUS_UNLOADED;
                 }
             }
             osSetIntMask(mask);
         }
         for (id = 0; id < DMA_MODEL_COUNT; id++) {
             const struct DmaModelEntry *entry = &sDmaModelTable[id];
+            struct StreamedCollision *collision = NULL;
             u32 bit = 1U << id;
-            u32 size, dlOffset;
+            u32 size, dlOffset, collisionOffset = 0;
+            u8 *base;
             s32 offset;
             OSIntMask mask;
-            if (!(sWantedMask & bit) || sDmaLoadedDlTable[id] != NULL
+            if (!(sWantedMask & bit) || ((sReadyMask | sFailedMask) & bit)
                 || !dma_model_valid(id)) {
                 continue;
             }
+            sDmaModelStatus[id] = DMA_MODEL_STATUS_LOADING;
             size = (uintptr_t) entry->romEnd - (uintptr_t) entry->romStart;
             dlOffset = (uintptr_t) entry->displayList - (uintptr_t) entry->segmentStart;
-            if (size == 0 || size > sizeof(sDmaModelMemoryPool)
-                || (size & 15) != 0 || dlOffset >= size
+            if (size == 0 || (size & 15) != 0 || dlOffset > size - sizeof(Gfx)
                 || ((uintptr_t) entry->displayList >> 24) != DMA_MODEL_SEGMENT) {
-                continue;
+                goto bad_data;
+            }
+            if (entry->collision != NULL) {
+                collisionOffset = (uintptr_t) entry->collision - (uintptr_t) entry->segmentStart;
+                if (collisionOffset >= size || collisionOffset % sizeof(Collision) != 0) {
+                    goto bad_data;
+                }
             }
             if (sModelSize[id] == 0) {
-                offset = dma_model_allocate(size);
+                offset = dma_stream_allocate(size, sizeof(sDmaModelMemoryPool), sModelOffset, sModelSize);
                 if (offset < 0) {
-                    /* Retry when a later frame releases retired blocks. */
+                    sDmaModelStatus[id] = DMA_MODEL_STATUS_NO_MEMORY;
                     continue;
                 }
                 sModelOffset[id] = offset;
                 sModelSize[id] = size;
-                /* dma_read has a private completion queue and invalidates
-                 * the destination cache. Publish only after it completes. */
+                sCollisionInfo[id].bytes = 0;
+                sDmaModelStatus[id] = DMA_MODEL_STATUS_DMA;
                 dma_read(sDmaModelMemoryPool + offset, entry->romStart, entry->romEnd);
+            }
+            base = sDmaModelMemoryPool + sModelOffset[id];
+            if (entry->collision != NULL) {
+                const Collision *data = (const Collision *) (base + collisionOffset);
+                const Collision *end = (const Collision *) (base + size);
+                sDmaModelStatus[id] = DMA_MODEL_STATUS_BUILDING_COLLISION;
+                if (sCollisionInfo[id].bytes == 0
+                    && !streamed_collision_measure(data, end, entry->collisionOffset, &sCollisionInfo[id])) {
+                    goto bad_data;
+                }
+                offset = dma_stream_allocate(sCollisionInfo[id].bytes,
+                    sizeof(sDmaCollisionMemoryPool), sCollisionOffset, sCollisionSize);
+                if (offset < 0) {
+                    sDmaModelStatus[id] = DMA_MODEL_STATUS_NO_MEMORY;
+                    continue;
+                }
+                sCollisionOffset[id] = offset;
+                sCollisionSize[id] = sCollisionInfo[id].bytes;
+                collision = streamed_collision_build(sDmaCollisionMemoryPool + offset,
+                    &sCollisionInfo[id], data, end, entry->collisionOffset);
+                if (collision == NULL) {
+                    sCollisionSize[id] = 0;
+                    goto bad_data;
+                }
             }
             mask = osSetIntMask(OS_IM_NONE);
             if (sWantedMask & bit) {
-                sDmaLoadedDlTable[id] = (Gfx *) (sDmaModelMemoryPool + sModelOffset[id] + dlOffset);
+                sPreparedDl[id] = (Gfx *) (base + dlOffset);
+                sPreparedCollision[id] = collision;
+                sReadyMask |= bit;
+                sDmaModelStatus[id] = DMA_MODEL_STATUS_WAITING_FOR_INSTALL;
+                /* The game thread installs collision before exposing the DL. */
             } else {
-                /* A cancelled DMA was never published or rendered. */
-                sModelSize[id] = 0;
+                sCollisionSize[id] = 0;
+                if (!((sBuildingMask | sSubmittedMask) & bit)) {
+                    sModelSize[id] = 0;
+                    sCollisionInfo[id].bytes = 0;
+                }
             }
             osSetIntMask(mask);
+            continue;
+
+bad_data:
+            sFailedMask |= bit;
+            sDmaModelStatus[id] = DMA_MODEL_STATUS_BAD_DATA;
         }
     }
 }
@@ -164,6 +283,7 @@ void dma_model_streaming_init(void) {
         return;
     }
     osCreateMesgQueue(&sAssetStreamingQueue, sAssetStreamingMessages, 1);
+    osCreateMesgQueue(&sCollisionIdleQueue, sCollisionIdleMessages, 1);
     osCreateThread(&sAssetStreamingThread, THREAD_11_ASSET_STREAMING,
                    thread11_asset_streaming, NULL,
                    sAssetStreamingStack + sizeof(sAssetStreamingStack), 1);
@@ -178,6 +298,74 @@ void dma_model_frame_submitted(void) {
     sSubmittedMask = sBuildingMask;
     sBuildingMask = 0;
     osSetIntMask(mask);
+    dma_model_wake();
+}
+
+/* render_game can be preempted while traversing collision lists or holding a
+ * Surface pointer. Defer list edits until that CPU reader has finished. */
+void dma_model_collision_render_begin(void) {
+    OSIntMask mask = osSetIntMask(OS_IM_NONE);
+    sCollisionReaders++;
+    osSetIntMask(mask);
+}
+
+void dma_model_collision_render_end(void) {
+    OSIntMask mask = osSetIntMask(OS_IM_NONE);
+    sCollisionReaders--;
+    osSetIntMask(mask);
+    if (sCollisionReaders == 0) {
+        /* Buffered notification also covers completion just before the game
+         * starts waiting. A stale notification is harmless: it rechecks below. */
+        osSendMesg(&sCollisionIdleQueue, (OSMesg) 1, OS_MESG_NOBLOCK);
+    }
+}
+
+/* Called once before terrain objects/Mario update, never from the DMA worker.
+ * Wait only when an install/removal is pending. On hardware the game can
+ * interrupt rendering at the same point every tick, so skipping busy readers
+ * can otherwise postpone publication forever. Once readers finish, the higher
+ * priority game thread performs the edits without yielding to a new render. */
+void dma_model_update(void) {
+    int id;
+    s32 pending = FALSE;
+    dma_model_debug_pool_usage();
+    if (gTimeStopState & TIME_STOP_ACTIVE) {
+        return;
+    }
+    for (id = 0; id < DMA_MODEL_COUNT; id++) {
+        u32 bit = 1U << id;
+        if ((sReadyMask & bit)
+            && (!(sWantedMask & bit) || sDmaLoadedDlTable[id] == NULL)) {
+            pending = TRUE;
+            break;
+        }
+    }
+    if (!pending) {
+        return;
+    }
+    while (sCollisionReaders != 0) {
+        osRecvMesg(&sCollisionIdleQueue, NULL, OS_MESG_BLOCK);
+    }
+    for (id = 0; id < DMA_MODEL_COUNT; id++) {
+        u32 bit = 1U << id;
+        if ((sReadyMask & bit) && !(sWantedMask & bit)) {
+            streamed_collision_detach(sPreparedCollision[id]);
+            sPreparedCollision[id] = NULL;
+            sPreparedDl[id] = NULL;
+            sDmaLoadedDlTable[id] = NULL;
+            sReadyMask &= ~bit;
+            sDmaModelStatus[id] = DMA_MODEL_STATUS_UNLOADED;
+        }
+    }
+    for (id = 0; id < DMA_MODEL_COUNT; id++) {
+        u32 bit = 1U << id;
+        if ((sReadyMask & sWantedMask & bit) && sDmaLoadedDlTable[id] == NULL) {
+            streamed_collision_attach(sPreparedCollision[id]);
+            sDmaLoadedDlTable[id] = sPreparedDl[id];
+            sDmaModelStatus[id] = DMA_MODEL_STATUS_READY;
+        }
+    }
+    dma_model_debug_pool_usage();
     dma_model_wake();
 }
 

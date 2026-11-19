@@ -1773,7 +1773,6 @@ s32 execute_mario_action(UNUSED struct Object *obj) {
     set_mario_lookat();
     set_mario_interest();
     mario_warp_volume();
-    dma_model_check_volumes();
 
     // Updates once per frame:
     vec3f_get_dist_and_angle(gMarioState->prevPos, gMarioState->pos, &gMarioState->moveSpeed, &gMarioState->movePitch, &gMarioState->moveYaw);

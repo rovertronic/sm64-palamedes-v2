@@ -12,6 +12,7 @@
 #include "engine/math_util.h"
 #include "interaction.h"
 #include "level_update.h"
+#include "dma_model_streaming.h"
 #include "mario.h"
 #include "memory.h"
 #include "object_collision.h"
@@ -645,6 +646,11 @@ void update_objects(UNUSED s32 unused) {
     stub_debug_control();
 
     gObjectLists = gObjectListArray;
+
+    /* Publish persistent streamed terrain before any object/Mario collision
+     * queries. This is a state check, not a per-frame collision rebuild. */
+    dma_model_check_volumes();
+    dma_model_update();
 
     // If time stop is not active, unload object surfaces
     clear_dynamic_surfaces();

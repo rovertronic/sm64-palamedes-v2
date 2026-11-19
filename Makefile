@@ -385,6 +385,7 @@ LEVEL_DIRS     := $(patsubst levels/%,%,$(dir $(wildcard levels/*/header.h)))
 DMA_ASSET_DIRS := $(shell find assets/textures assets/models -type d)
 DMA_MODEL_EXPORTS := $(sort $(foreach dir,$(filter assets/models/%,$(DMA_ASSET_DIRS)),$(wildcard $(dir)/model.inc.c)))
 DMA_MODEL_SOURCES := $(patsubst %/model.inc.c,$(BUILD_DIR)/%/streamed_model.c,$(DMA_MODEL_EXPORTS))
+DMA_MODEL_COLLISIONS := $(foreach dir,$(dir $(DMA_MODEL_EXPORTS)),$(wildcard $(dir)collision.inc.c))
 DMA_MODEL_HEADER := $(BUILD_DIR)/assets/models/streaming_assets.h
 DMA_MODEL_LINKER := $(BUILD_DIR)/assets/models/streaming_assets.inc.ld
 
@@ -436,13 +437,14 @@ GODDARD_O_FILES := $(foreach file,$(GODDARD_C_FILES),$(BUILD_DIR)/$(file:.c=.o))
 # Generate DMA texture includes before compiling, including on a clean build.
 DMA_ASSET_TEXTURES := $(foreach dir,$(DMA_ASSET_DIRS),$(wildcard $(dir)/*.png))
 $(filter $(BUILD_DIR)/assets/textures/%.o $(BUILD_DIR)/assets/models/%.o,$(O_FILES)): $(DMA_ASSET_TEXTURES:%.png=$(BUILD_DIR)/%.inc.c)
+$(DMA_MODEL_SOURCES:.c=.o): CFLAGS += -MP
 
 # Fast64 exports compile through generated wrappers; keep exported files intact.
 $(BUILD_DIR)/assets/models/%/streamed_model.c: assets/models/%/model.inc.c tools/dma_model_assets.py assets/models/%/
 	$(V)$(PYTHON) tools/dma_model_assets.py source $@ $<
 
 # Directory prerequisites also detect added/removed exports and header files.
-$(DMA_MODEL_HEADER): tools/dma_model_assets.py Makefile $(DMA_ASSET_DIRS) $(DMA_MODEL_EXPORTS)
+$(DMA_MODEL_HEADER): tools/dma_model_assets.py Makefile $(DMA_ASSET_DIRS) $(DMA_MODEL_EXPORTS) $(DMA_MODEL_COLLISIONS)
 	$(V)$(PYTHON) tools/dma_model_assets.py header $@ $(DMA_MODEL_EXPORTS)
 
 $(DMA_MODEL_LINKER): tools/dma_model_assets.py Makefile $(DMA_ASSET_DIRS) $(DMA_MODEL_EXPORTS)

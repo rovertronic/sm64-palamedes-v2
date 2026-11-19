@@ -15,6 +15,9 @@
 #include "surface_load.h"
 #include "game/puppyprint.h"
 #include "game/debug.h"
+#include "game/camera.h"
+#include "game/dma_model_streaming.h"
+#include "game/level_update.h"
 #include <PR/os_internal_reg.h>
 
 #include "config.h"
@@ -93,7 +96,8 @@ static struct Surface *alloc_surface(u32 dynamic) {
  * @param cellZ The Z position of the cell in which the surface resides
  * @param surface The surface to add
  */
-static void add_surface_to_cell(s32 dynamic, s32 cellX, s32 cellZ, struct Surface *surface, f32 normalY) {
+static void link_surface_to_cell(struct SurfaceNode *newNode, s32 dynamic,
+                                s32 cellX, s32 cellZ, struct Surface *surface, f32 normalY) {
     struct SurfaceNode **list;
     s32 priority;
     s32 sortDir = 1; // highest to lowest, then insertion order (water and floors)
@@ -113,8 +117,8 @@ static void add_surface_to_cell(s32 dynamic, s32 cellX, s32 cellZ, struct Surfac
 
     s32 surfacePriority = surface->upperY * sortDir;
 
-    struct SurfaceNode *newNode = alloc_surface_node(dynamic);
     newNode->surface = surface;
+    newNode->next = NULL;
 
     if (dynamic) {
         list = &gDynamicSurfacePartition[cellZ][cellX][listIndex];
@@ -160,6 +164,10 @@ static void add_surface_to_cell(s32 dynamic, s32 cellX, s32 cellZ, struct Surfac
 
     newNode->next = curNode->next;
     curNode->next = newNode;
+}
+
+static void add_surface_to_cell(s32 dynamic, s32 cellX, s32 cellZ, struct Surface *surface, f32 normalY) {
+    link_surface_to_cell(alloc_surface_node(dynamic), dynamic, cellX, cellZ, surface, normalY);
 }
 
 /**
@@ -314,10 +322,275 @@ static s32 surf_has_no_cam_collision(s32 surfaceType) {
     return flags;
 }
 
-/**
- * Load in the surfaces for a given surface type. This includes setting the flags,
- * exertion, and room.
- */
+/* A model owns its persistent surfaces and nodes in one worker allocation. */
+struct StreamedCollision {
+    struct StreamedCollision *next;
+    struct StreamedCollisionInfo info;
+    struct Surface *surfaces;
+    struct SurfaceNode *nodes;
+    s32 attached;
+};
+
+static struct StreamedCollision *sStreamedCollisions;
+
+static void streamed_surface_cells(const struct Surface *surface,
+                                  s32 *minX, s32 *maxX, s32 *minZ, s32 *maxZ) {
+    s32 low, high;
+    min_max_3i(surface->vertex1[0], surface->vertex2[0], surface->vertex3[0], &low, &high);
+    *minX = lower_cell_index(low);
+    *maxX = upper_cell_index(high);
+    min_max_3i(surface->vertex1[2], surface->vertex2[2], surface->vertex3[2], &low, &high);
+    *minZ = lower_cell_index(low);
+    *maxZ = upper_cell_index(high);
+}
+
+/* Parse directly from the export, with no fixed-size vertex scratch buffer.
+ * Every count and triangle index is checked before reading it. Objects and
+ * environmental boxes have a different lifecycle and are intentionally rejected. */
+static s32 streamed_collision_parse(const Collision *data, const Collision *end,
+    const Vec3f offset, struct Surface *surfaces, u32 capacity, struct StreamedCollisionInfo *info) {
+    const Collision *vertices = NULL;
+    s32 vertexCount = 0;
+    u32 surfaceCount = 0, nodeCount = 0;
+
+    while (data < end) {
+        u32 command = (u32) *data++;
+        s32 count, stride, i, j;
+        if (sizeof(Collision) == sizeof(s16)) {
+            command &= 0xFFFF; /* Preserve packed materials in signed exports. */
+        }
+        if (command == TERRAIN_LOAD_END) {
+            if (vertices == NULL) {
+                return FALSE;
+            }
+            info->surfaces = surfaceCount;
+            info->nodes = nodeCount;
+            info->bytes = ALIGN16(ALIGN16(sizeof(struct StreamedCollision))
+                + ALIGN16(surfaceCount * sizeof(struct Surface))
+                + nodeCount * sizeof(struct SurfaceNode));
+            return TRUE;
+        }
+        if (command == TERRAIN_LOAD_CONTINUE) {
+            continue;
+        }
+        if (command == TERRAIN_LOAD_VERTICES) {
+            if (data == end) {
+                return FALSE;
+            }
+            vertexCount = *data++;
+            if (vertexCount < 0 || vertexCount > (end - data) / 3) {
+                return FALSE;
+            }
+            vertices = data;
+            data += 3 * vertexCount;
+            continue;
+        }
+        if (!(TERRAIN_LOAD_IS_SURFACE_TYPE_LOW(command)
+              || TERRAIN_LOAD_IS_SURFACE_TYPE_HIGH(command)) || vertices == NULL || data == end) {
+            return FALSE;
+        }
+        count = *data++;
+#ifdef ALL_SURFACES_HAVE_FORCE
+        stride = 4;
+#else
+        stride = 3 + surface_has_force(command & SURFACE_MASK_TYPE);
+#endif
+        if (count < 0 || count > (end - data) / stride) {
+            return FALSE;
+        }
+        for (i = 0; i < count; i++, data += stride) {
+            struct Surface surface = { 0 };
+            Vec3f v[3], normal;
+            s32 minX, maxX, minZ, maxZ;
+            s16 low, high;
+            for (j = 0; j < 3; j++) {
+                s32 index = data[j];
+                if (index < 0 || index >= vertexCount) {
+                    return FALSE;
+                }
+                vec3s_copy(v[j], vertices + 3 * index);
+                vec3_add(v[j], offset);
+                /* Prevent translated vertices wrapping in the stored format. */
+                if (sizeof(Collision) == sizeof(s16)
+                    && (v[j][0] < S16_MIN || v[j][0] > S16_MAX
+                        || v[j][1] < S16_MIN || v[j][1] > S16_MAX
+                        || v[j][2] < S16_MIN || v[j][2] > S16_MAX)) {
+                    return FALSE;
+                }
+            }
+            find_vector_perpendicular_to_plane(normal, v[0], v[1], v[2]);
+            if (vec3_sumsq(normal) < NEAR_ZERO) {
+                continue;
+            }
+            vec3s_copy(surface.vertex1, v[0]);
+            vec3s_copy(surface.vertex2, v[1]);
+            vec3s_copy(surface.vertex3, v[2]);
+            min_max_3s(v[0][1], v[1][1], v[2][1], &low, &high);
+            surface.lowerY = MAX(low - SURFACE_VERTICAL_BUFFER, S16_MIN);
+            surface.upperY = MIN(high + SURFACE_VERTICAL_BUFFER, S16_MAX);
+            surface.type = command & SURFACE_MASK_TYPE;
+            surface.material = command >> 12;
+            surface.flags = surf_has_no_cam_collision(surface.type);
+            streamed_surface_cells(&surface, &minX, &maxX, &minZ, &maxZ);
+            if (minX > maxX || minZ > maxZ) {
+                continue;
+            }
+            if (surfaces != NULL) {
+                if (surfaceCount >= capacity) {
+                    return FALSE;
+                }
+                surfaces[surfaceCount] = surface;
+            }
+            surfaceCount++;
+            nodeCount += (maxX - minX + 1) * (maxZ - minZ + 1);
+        }
+    }
+    return FALSE; /* Truncated input, including a missing COL_END(). */
+}
+
+s32 streamed_collision_measure(const Collision *data, const Collision *end,
+                               const Vec3f offset, struct StreamedCollisionInfo *info) {
+    return data != NULL && data < end
+        && streamed_collision_parse(data, end, offset, NULL, 0, info);
+}
+
+struct StreamedCollision *streamed_collision_build(void *memory,
+    const struct StreamedCollisionInfo *info, const Collision *data, const Collision *end,
+    const Vec3f offset) {
+    struct StreamedCollision *collision = memory;
+    struct StreamedCollisionInfo actual;
+    collision->surfaces = (struct Surface *) ((u8 *) memory + ALIGN16(sizeof(*collision)));
+    collision->nodes = (struct SurfaceNode *) ((u8 *) collision->surfaces
+                                             + ALIGN16(info->surfaces * sizeof(struct Surface)));
+    if (!streamed_collision_parse(data, end, offset, collision->surfaces, info->surfaces, &actual)
+        || actual.surfaces != info->surfaces || actual.nodes != info->nodes) {
+        return NULL;
+    }
+    collision->info = actual;
+    collision->next = NULL;
+    collision->attached = FALSE;
+    return collision;
+}
+
+void streamed_collision_attach(struct StreamedCollision *collision) {
+    u32 i;
+    struct SurfaceNode *node;
+    if (collision == NULL || collision->attached) {
+        return;
+    }
+    node = collision->nodes;
+    for (i = 0; i < collision->info.surfaces; i++) {
+        struct Surface *surface = &collision->surfaces[i];
+        s32 minX, maxX, minZ, maxZ, x, z;
+        f32 normalY = get_surface_normal(surface).y;
+        streamed_surface_cells(surface, &minX, &maxX, &minZ, &maxZ);
+        for (z = minZ; z <= maxZ; z++) {
+            for (x = minX; x <= maxX; x++) {
+                link_surface_to_cell(node++, FALSE, x, z, surface, normalY);
+            }
+        }
+    }
+    collision->attached = TRUE;
+    collision->next = sStreamedCollisions;
+    sStreamedCollisions = collision;
+    gNumStaticSurfaces += collision->info.surfaces;
+    gSurfacesAllocated += collision->info.surfaces;
+    gNumStaticSurfaceNodes += collision->info.nodes;
+    gSurfaceNodesAllocated += collision->info.nodes;
+    gTotalStaticSurfaceData += collision->info.bytes;
+}
+
+static s32 streamed_collision_owns(const struct StreamedCollision *collision, const struct Surface *surface) {
+    uintptr_t address = (uintptr_t) surface;
+    return address >= (uintptr_t) collision->surfaces
+        && address < (uintptr_t) (collision->surfaces + collision->info.surfaces);
+}
+
+/* Persistent engine caches must not outlive their owning allocation. Rendering
+ * is excluded by the streaming coordinator while these lists/caches change. */
+static void streamed_collision_forget(const struct StreamedCollision *collision) {
+    s32 i;
+    if (gMarioState != NULL) {
+        if (streamed_collision_owns(collision, gMarioState->floor)) {
+            gMarioState->floor = NULL;
+            gMarioState->floorHeight = FLOOR_LOWER_LIMIT;
+        }
+        if (streamed_collision_owns(collision, gMarioState->ceil)) {
+            gMarioState->ceil = NULL;
+            gMarioState->ceilHeight = CELL_HEIGHT_LIMIT;
+        }
+        if (streamed_collision_owns(collision, gMarioState->wall)) {
+            gMarioState->wall = NULL;
+        }
+    }
+    for (i = 0; i < OBJECT_POOL_CAPACITY; i++) {
+        if (streamed_collision_owns(collision, gObjectPool[i].oFloor)) {
+            gObjectPool[i].oFloor = NULL;
+            gObjectPool[i].oFloorHeight = FLOOR_LOWER_LIMIT;
+        }
+    }
+    if (streamed_collision_owns(collision, sMarioGeometry.currFloor)) {
+        sMarioGeometry.currFloor = NULL;
+        sMarioGeometry.currFloorHeight = FLOOR_LOWER_LIMIT;
+        sMarioGeometry.currFloorType = SURFACE_DEFAULT;
+    }
+    if (streamed_collision_owns(collision, sMarioGeometry.prevFloor)) {
+        sMarioGeometry.prevFloor = NULL;
+        sMarioGeometry.prevFloorHeight = FLOOR_LOWER_LIMIT;
+        sMarioGeometry.prevFloorType = SURFACE_DEFAULT;
+    }
+    if (streamed_collision_owns(collision, sMarioGeometry.currCeil)) {
+        sMarioGeometry.currCeil = NULL;
+        sMarioGeometry.currCeilHeight = CELL_HEIGHT_LIMIT;
+        sMarioGeometry.currCeilType = SURFACE_DEFAULT;
+    }
+    if (streamed_collision_owns(collision, sMarioGeometry.prevCeil)) {
+        sMarioGeometry.prevCeil = NULL;
+        sMarioGeometry.prevCeilHeight = CELL_HEIGHT_LIMIT;
+        sMarioGeometry.prevCeilType = SURFACE_DEFAULT;
+    }
+}
+
+void streamed_collision_detach(struct StreamedCollision *collision) {
+    struct StreamedCollision **owner;
+    s32 x, z, partition;
+    if (collision == NULL || !collision->attached) {
+        return;
+    }
+    for (z = 0; z < NUM_CELLS; z++) {
+        for (x = 0; x < NUM_CELLS; x++) {
+            for (partition = 0; partition < NUM_SPATIAL_PARTITIONS; partition++) {
+                struct SurfaceNode **node = &gStaticSurfacePartition[z][x][partition];
+                while (*node != NULL) {
+                    if (streamed_collision_owns(collision, (*node)->surface)) {
+                        *node = (*node)->next;
+                    } else {
+                        node = &(*node)->next;
+                    }
+                }
+            }
+        }
+    }
+    streamed_collision_forget(collision);
+    for (owner = &sStreamedCollisions; *owner != collision; owner = &(*owner)->next) {
+    }
+    *owner = collision->next;
+    collision->attached = FALSE;
+    collision->next = NULL;
+    gNumStaticSurfaces -= collision->info.surfaces;
+    gSurfacesAllocated -= collision->info.surfaces;
+    gNumStaticSurfaceNodes -= collision->info.nodes;
+    gSurfaceNodesAllocated -= collision->info.nodes;
+    gTotalStaticSurfaceData -= collision->info.bytes;
+}
+
+void streamed_collision_reset(void) {
+    while (sStreamedCollisions != NULL) {
+        streamed_collision_detach(sStreamedCollisions);
+    }
+}
+
+/** Load the area terrain's surfaces for a given surface type. */
 static void load_static_surfaces(TerrainData **data, TerrainData *vertexData, s32 surfaceType, UNUSED RoomData **surfaceRooms) {
     s32 i;
     struct Surface *surface;
@@ -458,6 +731,11 @@ void load_area_terrain(s32 index, TerrainData *data, RoomData *surfaceRooms, s16
     s32 terrainLoadType;
     TerrainData *vertexData = NULL;
     u32 surfacePoolData;
+
+    /* Area changes already exclude rendering. Unlink streamed owners before
+     * clearing the shared partition; their worker allocations retire later. */
+    dma_model_reset();
+    streamed_collision_reset();
 
     // Initialize the data for this.
     gEnvironmentRegions = NULL;

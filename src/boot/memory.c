@@ -266,6 +266,7 @@ Threadsafe DMA written by Devwizard
 void dma_read(unsigned char *dst, const unsigned char *start, const unsigned char *end) {
     size_t size = ALIGN16(end-start);
     OSIoMesg mb;
+    OSTimer retryTimer;
     OSMesgQueue mq;
     OSMesg mbox[1];
     osCreateMesgQueue(&mq, mbox, 1);
@@ -273,9 +274,15 @@ void dma_read(unsigned char *dst, const unsigned char *start, const unsigned cha
     while (size > 0)
     {
         size_t n = size >= 0x1000 ? 0x1000 : size;
-        osPiStartDma(
+        while (osPiStartDma(
             &mb, OS_MESG_PRI_NORMAL, OS_READ, (long)start, dst, n, &mq
-        );
+        ) != 0) {
+            /* A full PI command queue rejects the transfer without a DMA
+             * completion message. Sleep and retry instead of waiting forever
+             * for a completion belonging to a transfer that never started. */
+            osSetTimer(&retryTimer, OS_USEC_TO_CYCLES(1000), 0, &mq, (OSMesg) 1);
+            osRecvMesg(&mq, NULL, OS_MESG_BLOCK);
+        }
         osRecvMesg(&mq, NULL, OS_MESG_BLOCK);
         dst   += n;
         start += n;
