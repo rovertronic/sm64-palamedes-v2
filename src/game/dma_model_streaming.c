@@ -54,8 +54,6 @@ static struct StreamedCollisionInfo sCollisionInfo[DMA_MODEL_COUNT];
 static u32 sVolumeMask;
 static f32 sModelPoolUsedPercent;
 static f32 sCollisionPoolUsedPercent;
-static s32 sDebugModel0Status;
-static s32 sDebugModel1Status;
 static s32 sDebugPreparedMask;
 static s32 sDebugCollisionReaders;
 
@@ -69,8 +67,6 @@ static void dma_model_debug_pool_usage(void) {
         modelBytes += sModelSize[id];
         collisionBytes += sCollisionSize[id];
     }
-    sDebugModel0Status = sDmaModelStatus[0];
-    sDebugModel1Status = sDmaModelStatus[1];
     sDebugPreparedMask = sReadyMask;
     sDebugCollisionReaders = sCollisionReaders;
     osSetIntMask(mask);
@@ -78,8 +74,6 @@ static void dma_model_debug_pool_usage(void) {
     sCollisionPoolUsedPercent = 100.0f * collisionBytes / sizeof(sDmaCollisionMemoryPool);
     debug_f32(&sModelPoolUsedPercent, "Model pool used *");
     debug_f32(&sCollisionPoolUsedPercent, "Collision pool used *");
-    debug_s32(&sDebugModel0Status, "Stream 0 state");
-    debug_s32(&sDebugModel1Status, "Stream 1 state");
     debug_s32(&sDebugPreparedMask, "Stream prepared");
     debug_s32(&sDebugCollisionReaders, "Stream CPU readers");
 }
