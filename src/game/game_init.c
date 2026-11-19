@@ -32,6 +32,7 @@
 #include "profiling.h"
 #include "emutest.h"
 #include "frame_lerp.h"
+#include "dma_model_streaming.h"
 #include "level_update.h"
 #include "utf8_print.h"
 #include <PR/os_internal_reg.h>
@@ -474,6 +475,7 @@ void display_and_vsync(void) {
         gGoddardVblankCallback();
         gGoddardVblankCallback = NULL;
     }
+    dma_model_frame_submitted();
     exec_display_list(&gGfxPool->spTask);
     osViSwapBuffer((void *) PHYSICAL_TO_VIRTUAL(gPhysicalFramebuffers[sRenderedFramebuffer]));
 

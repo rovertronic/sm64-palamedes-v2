@@ -533,10 +533,12 @@ SECTIONS
    }
    END_SEG(dma_textures)
 
-   BEGIN_SEG(dma_models, __romPos)
+   BEGIN_SEG(dma_models, 0x0F000000) SUBALIGN(16)
    {
+      #include "assets/models/streaming_assets.inc.ld"
       KEEP(BUILD_DIR/assets/models*.o(.data* .rodata*));
       . = ALIGN(0x10);
+      ASSERT((. - ADDR(.dma_models) <= 0x01000000), "Error: streamed models exceed the 24-bit segment offset range.");
    }
    END_SEG(dma_models)
 

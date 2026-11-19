@@ -1,4 +1,5 @@
 #include "cubic_volume.h"
+#include "dma_model_streaming.h"
 #include "engine/math_util.h"
 
 #include "sm64.h"
@@ -38,6 +39,7 @@ CubicVolume sCubicVolumeList[CUBIC_VOLUME_MAX];
 int sCubicVolumeCount = 0;
 
 void cubic_volume_reset(void) {
+    dma_model_reset();
     sCubicVolumeCount = 0;
 }
 

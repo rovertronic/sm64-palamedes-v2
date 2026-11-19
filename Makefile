@@ -383,6 +383,10 @@ LEVEL_DIRS     := $(patsubst levels/%,%,$(dir $(wildcard levels/*/header.h)))
 
 # ROM-backed DMA assets, including any subfolders.
 DMA_ASSET_DIRS := $(shell find assets/textures assets/models -type d)
+DMA_MODEL_EXPORTS := $(sort $(foreach dir,$(filter assets/models/%,$(DMA_ASSET_DIRS)),$(wildcard $(dir)/model.inc.c)))
+DMA_MODEL_SOURCES := $(patsubst %/model.inc.c,$(BUILD_DIR)/%/streamed_model.c,$(DMA_MODEL_EXPORTS))
+DMA_MODEL_HEADER := $(BUILD_DIR)/assets/models/streaming_assets.h
+DMA_MODEL_LINKER := $(BUILD_DIR)/assets/models/streaming_assets.inc.ld
 
 # Directories containing source files
 SRC_DIRS += src src/boot src/game src/engine src/audio src/menu src/buffers src/data actors levels bin data assets asm lib sound $(DMA_ASSET_DIRS)
@@ -400,7 +404,7 @@ CPP_FILES         := $(foreach dir,$(SRC_DIRS),$(wildcard $(dir)/*.cpp))
 LIBZ_C_FILES      := $(foreach dir,$(LIBZ_SRC_DIRS),$(wildcard $(dir)/*.c))
 GODDARD_C_FILES   := $(foreach dir,$(GODDARD_SRC_DIRS),$(wildcard $(dir)/*.c))
 S_FILES           := $(foreach dir,$(SRC_DIRS),$(wildcard $(dir)/*.s))
-GENERATED_C_FILES := $(BUILD_DIR)/assets/mario_anim_data.c $(BUILD_DIR)/assets/demo_data.c
+GENERATED_C_FILES := $(BUILD_DIR)/assets/mario_anim_data.c $(BUILD_DIR)/assets/demo_data.c $(DMA_MODEL_SOURCES)
 
 # Ignore all .inc.c files
 C_FILES           := $(filter-out %.inc.c,$(C_FILES))
@@ -432,6 +436,19 @@ GODDARD_O_FILES := $(foreach file,$(GODDARD_C_FILES),$(BUILD_DIR)/$(file:.c=.o))
 # Generate DMA texture includes before compiling, including on a clean build.
 DMA_ASSET_TEXTURES := $(foreach dir,$(DMA_ASSET_DIRS),$(wildcard $(dir)/*.png))
 $(filter $(BUILD_DIR)/assets/textures/%.o $(BUILD_DIR)/assets/models/%.o,$(O_FILES)): $(DMA_ASSET_TEXTURES:%.png=$(BUILD_DIR)/%.inc.c)
+
+# Fast64 exports compile through generated wrappers; keep exported files intact.
+$(BUILD_DIR)/assets/models/%/streamed_model.c: assets/models/%/model.inc.c tools/dma_model_assets.py assets/models/%/
+	$(V)$(PYTHON) tools/dma_model_assets.py source $@ $<
+
+# Directory prerequisites also detect added/removed exports and header files.
+$(DMA_MODEL_HEADER): tools/dma_model_assets.py Makefile $(DMA_ASSET_DIRS) $(DMA_MODEL_EXPORTS)
+	$(V)$(PYTHON) tools/dma_model_assets.py header $@ $(DMA_MODEL_EXPORTS)
+
+$(DMA_MODEL_LINKER): tools/dma_model_assets.py Makefile $(DMA_ASSET_DIRS) $(DMA_MODEL_EXPORTS)
+	$(V)$(PYTHON) tools/dma_model_assets.py linker $@ $(DMA_MODEL_EXPORTS)
+
+$(BUILD_DIR)/src/game/dma_model_streaming.o: $(DMA_MODEL_HEADER)
 
 # Automatic dependency files
 DEP_FILES := $(O_FILES:.o=.d) $(LIBZ_O_FILES:.o=.d) $(GODDARD_O_FILES:.o=.d) $(BUILD_DIR)/$(LD_SCRIPT).d
@@ -897,7 +914,7 @@ $(BUILD_DIR)/rsp/%.bin $(BUILD_DIR)/rsp/%_data.bin: rsp/%.s
 	$(V)$(RSPASM) -sym $@.sym $(RSPASMFLAGS) -strequ CODE_FILE $(BUILD_DIR)/rsp/$*.bin -strequ DATA_FILE $(BUILD_DIR)/rsp/$*_data.bin $<
 
 # Run linker script through the C preprocessor
-$(BUILD_DIR)/$(LD_SCRIPT): $(LD_SCRIPT) $(BUILD_DIR)/goddard.txt
+$(BUILD_DIR)/$(LD_SCRIPT): $(LD_SCRIPT) $(BUILD_DIR)/goddard.txt $(DMA_MODEL_LINKER)
 	$(call print,Preprocessing linker script:,$<,$@)
 	$(V)$(CPP) $(CPPFLAGS) -DBUILD_DIR=$(BUILD_DIR) -DULTRALIB=lib$(ULTRALIB) $(DEBUG_MAP_STACKTRACE_FLAG) -MMD -MP -MT $@ -MF $@.d -o $@ $<
 
@@ -912,7 +929,7 @@ $(BUILD_DIR)/libz.a: $(LIBZ_O_FILES)
 	$(V)$(AR) rcs -o $@ $(LIBZ_O_FILES)
 
 # SS2: Goddard rules to get size
-$(BUILD_DIR)/sm64_prelim.ld: sm64.ld $(O_FILES) $(YAY0_OBJ_FILES) $(SEG_FILES) $(BUILD_DIR)/libgoddard.a $(BUILD_DIR)/libz.a
+$(BUILD_DIR)/sm64_prelim.ld: sm64.ld $(O_FILES) $(YAY0_OBJ_FILES) $(SEG_FILES) $(BUILD_DIR)/libgoddard.a $(BUILD_DIR)/libz.a $(DMA_MODEL_LINKER)
 	$(call print,Preprocessing preliminary linker script:,$<,$@)
 	$(V)$(CPP) $(CPPFLAGS) -DPRELIMINARY=1 -DBUILD_DIR=$(BUILD_DIR) -DULTRALIB=lib$(ULTRALIB) -MMD -MP -MT $@ -MF $@.d -o $@ $<
 

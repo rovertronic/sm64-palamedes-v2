@@ -22,6 +22,7 @@
 #include "game/puppyprint.h"
 #include "game/profiling.h"
 #include "game/emutest.h"
+#include "game/dma_model_streaming.h"
 
 // Message IDs
 enum MessageIDs {
@@ -398,10 +399,12 @@ void thread3_main(UNUSED void *arg) {
     create_thread(&gSoundThread, THREAD_4_SOUND, thread4_sound, NULL, gThread4Stack + THREAD4_STACK, 20);
     osStartThread(&gSoundThread);
 
+    dma_model_streaming_init();
+
     create_thread(&gGameLoopThread, THREAD_5_GAME_LOOP, thread5_game_loop, NULL, gThread5Stack + THREAD5_STACK, 10);
     osStartThread(&gGameLoopThread);
 
-    create_thread(&gGraphicsThread, THREAD_10_GRAPHICS, thread10_graphics_loop, NULL, gThread10Stack + THREAD10_STACK, 1);
+    create_thread(&gGraphicsThread, THREAD_10_GRAPHICS, thread10_graphics_loop, NULL, gThread10Stack + THREAD10_STACK, 2);
 
     while (TRUE) {
         OSMesg msg;

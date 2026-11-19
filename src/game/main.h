@@ -16,6 +16,7 @@ enum VIModes {
 #define THREAD5_STACK 0x2000
 #define THREAD6_STACK 0x400
 #define THREAD10_STACK 0x2000
+#define THREAD11_STACK 0x1000
 
 enum ThreadID {
     THREAD_0,
@@ -28,7 +29,8 @@ enum ThreadID {
     THREAD_7_HVQM,
     THREAD_8_TIMEKEEPER,
     THREAD_9_DA_COUNTER,
-    THREAD_10_GRAPHICS
+    THREAD_10_GRAPHICS,
+    THREAD_11_ASSET_STREAMING
 };
 
 struct RumbleData {

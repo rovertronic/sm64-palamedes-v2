@@ -1,0 +1,11 @@
+extern Lights1 cruelty_f3dlite_material_lights;
+extern Lights1 cruelty_f3dlite_material_001_lights;
+extern Vtx cruelty_curelty_mesh_vtx_0[240];
+extern Gfx cruelty_curelty_mesh_tri_0[];
+extern Vtx cruelty_curelty_mesh_vtx_1[72];
+extern Gfx cruelty_curelty_mesh_tri_1[];
+extern Gfx mat_cruelty_f3dlite_material[];
+extern Gfx mat_revert_cruelty_f3dlite_material[];
+extern Gfx mat_cruelty_f3dlite_material_001[];
+extern Gfx mat_revert_cruelty_f3dlite_material_001[];
+extern Gfx cruelty_curelty_mesh[];
