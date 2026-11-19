@@ -4,9 +4,11 @@
 
 // Dma model streaming system assumes
 
+u8 sDmaModelMemoryPool[100000]; // 100 KB reserved for DL storage
+
 Gfx * sDmaModelTable[10] = {
     // Contains: ROM Addresses to Display Lists
-    // Check: bin/dma_model.inc.c
+    // Check: assets/models/dma_model.c
 };
 
 Gfx * sDmaLoadedDlTable[10];

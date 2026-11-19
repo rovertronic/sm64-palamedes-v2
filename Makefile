@@ -381,8 +381,11 @@ TEXTURE_DIR    := textures
 ACTOR_DIR      := actors
 LEVEL_DIRS     := $(patsubst levels/%,%,$(dir $(wildcard levels/*/header.h)))
 
+# ROM-backed DMA assets, including any subfolders.
+DMA_ASSET_DIRS := $(shell find assets/textures assets/models -type d)
+
 # Directories containing source files
-SRC_DIRS += src src/boot src/game src/engine src/audio src/menu src/buffers src/data actors levels bin data assets asm lib sound
+SRC_DIRS += src src/boot src/game src/engine src/audio src/menu src/buffers src/data actors levels bin data assets asm lib sound $(DMA_ASSET_DIRS)
 LIBZ_SRC_DIRS := src/libz
 GODDARD_SRC_DIRS := src/goddard src/goddard/dynlists
 BIN_DIRS := bin bin/$(VERSION)
@@ -425,6 +428,10 @@ O_FILES := $(foreach file,$(C_FILES),$(BUILD_DIR)/$(file:.c=.o)) \
 
 LIBZ_O_FILES := $(foreach file,$(LIBZ_C_FILES),$(BUILD_DIR)/$(file:.c=.o))
 GODDARD_O_FILES := $(foreach file,$(GODDARD_C_FILES),$(BUILD_DIR)/$(file:.c=.o))
+
+# Generate DMA texture includes before compiling, including on a clean build.
+DMA_ASSET_TEXTURES := $(foreach dir,$(DMA_ASSET_DIRS),$(wildcard $(dir)/*.png))
+$(filter $(BUILD_DIR)/assets/textures/%.o $(BUILD_DIR)/assets/models/%.o,$(O_FILES)): $(DMA_ASSET_TEXTURES:%.png=$(BUILD_DIR)/%.inc.c)
 
 # Automatic dependency files
 DEP_FILES := $(O_FILES:.o=.d) $(LIBZ_O_FILES:.o=.d) $(GODDARD_O_FILES:.o=.d) $(BUILD_DIR)/$(LD_SCRIPT).d

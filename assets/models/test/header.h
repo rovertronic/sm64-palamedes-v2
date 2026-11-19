@@ -1,0 +1,11 @@
+extern Lights1 test_f3dlite_material_001_lights;
+extern Lights1 test_f3dlite_material_002_lights;
+extern Vtx test_test_mesh_vtx_0[240];
+extern Gfx test_test_mesh_tri_0[];
+extern Vtx test_test_mesh_vtx_1[98];
+extern Gfx test_test_mesh_tri_1[];
+extern Gfx mat_test_f3dlite_material_001[];
+extern Gfx mat_revert_test_f3dlite_material_001[];
+extern Gfx mat_test_f3dlite_material_002[];
+extern Gfx mat_revert_test_f3dlite_material_002[];
+extern Gfx test_test_mesh[];

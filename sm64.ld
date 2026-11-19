@@ -528,9 +528,17 @@ SECTIONS
 
    BEGIN_SEG(dma_textures, __romPos)
    {
-      KEEP(BUILD_DIR/bin/dma_texture.o(.data*));
+      KEEP(BUILD_DIR/assets/textures*.o(.data* .rodata*));
+      . = ALIGN(0x10);
    }
    END_SEG(dma_textures)
+
+   BEGIN_SEG(dma_models, __romPos)
+   {
+      KEEP(BUILD_DIR/assets/models*.o(.data* .rodata*));
+      . = ALIGN(0x10);
+   }
+   END_SEG(dma_models)
 
 #ifdef DEBUG_MAP_STACKTRACE
    BEGIN_SEG(mapData, (RAM_END - 0x00100000)) {
