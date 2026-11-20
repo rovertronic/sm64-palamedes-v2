@@ -31,15 +31,14 @@ static OSThread sAssetStreamingThread;
 static ALIGNED16 u8 sAssetStreamingStack[THREAD11_STACK];
 static OSMesgQueue sAssetStreamingQueue;
 static OSMesg sAssetStreamingMessages[1];
-static OSMesgQueue sCollisionIdleQueue;
-static OSMesg sCollisionIdleMessages[1];
 static volatile u32 sWantedMask;
 static volatile u32 sBuildingMask;
 static volatile u32 sSubmittedMask;
-/* A prepared asset stays owned by the game thread until it has detached its
- * collision. The worker may not recycle either allocation before that ack. */
+/* A prepared asset stays owned until collision is unpublished and the old
+ * render snapshot is released. The worker cannot recycle it before that ack. */
 static volatile u32 sReadyMask;
 static volatile u32 sCollisionReaders;
+static volatile u32 sRetiringMask;
 static u32 sFailedMask;
 static Gfx *sPreparedDl[DMA_MODEL_COUNT];
 static struct StreamedCollision *sPreparedCollision[DMA_MODEL_COUNT];
@@ -120,6 +119,24 @@ void dma_model_unload(int id) {
     dma_model_wake();
 }
 
+/* Only acknowledge memory retirement after the old CPU render snapshot is
+ * finished. References are cleared once more because that frame could have
+ * restored a cached floor after the game removed the chunk. */
+static void dma_model_release_retired(void) {
+    int id;
+    for (id = 0; id < DMA_MODEL_COUNT; id++) {
+        u32 bit = 1U << id;
+        if (sRetiringMask & bit) {
+            streamed_collision_release(sPreparedCollision[id]);
+            sPreparedCollision[id] = NULL;
+            sPreparedDl[id] = NULL;
+            sReadyMask &= ~bit;
+            sRetiringMask &= ~bit;
+            sDmaModelStatus[id] = DMA_MODEL_STATUS_UNLOADED;
+        }
+    }
+}
+
 void dma_model_reset(void) {
     int id;
     OSIntMask mask = osSetIntMask(OS_IM_NONE);
@@ -128,19 +145,15 @@ void dma_model_reset(void) {
         sDmaLoadedDlTable[id] = NULL;
     }
     osSetIntMask(mask);
-    /* Level teardown has already stopped rendering. Release partition links
-     * before the level heap containing the base terrain is popped. For a
-     * reset during rendering, the next safe game update performs the detach. */
-    if (sCollisionReaders == 0) {
-        for (id = 0; id < DMA_MODEL_COUNT; id++) {
-            if (sReadyMask & (1U << id)) {
-                streamed_collision_detach(sPreparedCollision[id]);
-                sPreparedCollision[id] = NULL;
-                sPreparedDl[id] = NULL;
-                sDmaModelStatus[id] = DMA_MODEL_STATUS_UNLOADED;
-            }
+    for (id = 0; id < DMA_MODEL_COUNT; id++) {
+        u32 bit = 1U << id;
+        if ((sReadyMask & bit) && !(sRetiringMask & bit)) {
+            streamed_collision_detach(sPreparedCollision[id]);
+            sRetiringMask |= bit;
         }
-        sReadyMask = 0;
+    }
+    if (sCollisionReaders == 0) {
+        dma_model_release_retired();
     }
     dma_model_wake();
 }
@@ -283,7 +296,6 @@ void dma_model_streaming_init(void) {
         return;
     }
     osCreateMesgQueue(&sAssetStreamingQueue, sAssetStreamingMessages, 1);
-    osCreateMesgQueue(&sCollisionIdleQueue, sCollisionIdleMessages, 1);
     osCreateThread(&sAssetStreamingThread, THREAD_11_ASSET_STREAMING,
                    thread11_asset_streaming, NULL,
                    sAssetStreamingStack + sizeof(sAssetStreamingStack), 1);
@@ -301,69 +313,66 @@ void dma_model_frame_submitted(void) {
     dma_model_wake();
 }
 
-/* render_game can be preempted while traversing collision lists or holding a
- * Surface pointer. Defer list edits until that CPU reader has finished. */
+/* Render queries keep a fixed set of private chunks for the whole frame.
+ * Publishing new chunks never waits for this reader; removing old chunks keeps
+ * their allocations alive until this scope ends. */
 void dma_model_collision_render_begin(void) {
     OSIntMask mask = osSetIntMask(OS_IM_NONE);
+    streamed_collision_render_begin();
     sCollisionReaders++;
     osSetIntMask(mask);
 }
 
 void dma_model_collision_render_end(void) {
+    s32 retired;
     OSIntMask mask = osSetIntMask(OS_IM_NONE);
+    streamed_collision_render_end();
     sCollisionReaders--;
+    retired = sRetiringMask != 0 && sCollisionReaders == 0;
+    if (retired) {
+        /* This only clears a bounded number of object/camera references. There
+         * is no triangle traversal, list sorting, allocation or blocking here.
+         * Keep the game from preempting the final cache cleanup/acknowledgment. */
+        dma_model_release_retired();
+    }
     osSetIntMask(mask);
-    if (sCollisionReaders == 0) {
-        /* Buffered notification also covers completion just before the game
-         * starts waiting. A stale notification is harmless: it rechecks below. */
-        osSendMesg(&sCollisionIdleQueue, (OSMesg) 1, OS_MESG_NOBLOCK);
+    if (retired) {
+        dma_model_wake();
     }
 }
 
-/* Called once before terrain objects/Mario update, never from the DMA worker.
- * Wait only when an install/removal is pending. On hardware the game can
- * interrupt rendering at the same point every tick, so skipping busy readers
- * can otherwise postpone publication forever. Once readers finish, the higher
- * priority game thread performs the edits without yielding to a new render. */
+/* All geometry/index work is already complete on the worker. Each activation
+ * publishes one pointer; deactivation removes it and retires the old snapshot.
+ * No render rendezvous or writes to shared base-terrain lists are necessary. */
 void dma_model_update(void) {
     int id;
-    s32 pending = FALSE;
     dma_model_debug_pool_usage();
     if (gTimeStopState & TIME_STOP_ACTIVE) {
         return;
     }
     for (id = 0; id < DMA_MODEL_COUNT; id++) {
         u32 bit = 1U << id;
-        if ((sReadyMask & bit)
-            && (!(sWantedMask & bit) || sDmaLoadedDlTable[id] == NULL)) {
-            pending = TRUE;
-            break;
-        }
-    }
-    if (!pending) {
-        return;
-    }
-    while (sCollisionReaders != 0) {
-        osRecvMesg(&sCollisionIdleQueue, NULL, OS_MESG_BLOCK);
-    }
-    for (id = 0; id < DMA_MODEL_COUNT; id++) {
-        u32 bit = 1U << id;
-        if ((sReadyMask & bit) && !(sWantedMask & bit)) {
+        if ((sReadyMask & bit) && !(sWantedMask & bit) && !(sRetiringMask & bit)) {
             streamed_collision_detach(sPreparedCollision[id]);
-            sPreparedCollision[id] = NULL;
-            sPreparedDl[id] = NULL;
             sDmaLoadedDlTable[id] = NULL;
-            sReadyMask &= ~bit;
+            sRetiringMask |= bit;
             sDmaModelStatus[id] = DMA_MODEL_STATUS_UNLOADED;
         }
     }
     for (id = 0; id < DMA_MODEL_COUNT; id++) {
         u32 bit = 1U << id;
         if ((sReadyMask & sWantedMask & bit) && sDmaLoadedDlTable[id] == NULL) {
-            streamed_collision_attach(sPreparedCollision[id]);
-            sDmaLoadedDlTable[id] = sPreparedDl[id];
-            sDmaModelStatus[id] = DMA_MODEL_STATUS_READY;
+            if (streamed_collision_attach(sPreparedCollision[id])) {
+                sRetiringMask &= ~bit;
+                sDmaLoadedDlTable[id] = sPreparedDl[id];
+                sDmaModelStatus[id] = DMA_MODEL_STATUS_READY;
+            } else {
+                sDmaModelStatus[id] = DMA_MODEL_STATUS_NO_MEMORY;
+            }
         }
+    }
+    if (sCollisionReaders == 0) {
+        dma_model_release_retired();
     }
     dma_model_debug_pool_usage();
     dma_model_wake();

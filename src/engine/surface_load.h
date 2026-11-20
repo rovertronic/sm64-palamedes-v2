@@ -39,14 +39,15 @@ extern void *gCurrStaticSurfacePoolEnd;
 extern void *gDynamicSurfacePoolEnd;
 extern u32 gTotalStaticSurfaceData;
 
-/* Persistent streamed terrain. Measuring/building touches only caller-owned
- * memory and may run on the asset worker. Attach/detach run on the game thread
- * with rendering excluded; they never allocate from the dynamic/level pools. */
+/* The worker builds immutable private cells. The game thread publishes/removes
+ * a chunk pointer; old chunks remain allocated through the render snapshot's
+ * lifetime. Neither operation modifies the base or dynamic terrain lists. */
 struct StreamedCollision;
 struct StreamedCollisionInfo {
     u32 surfaces;
     u32 nodes;
     u32 bytes;
+    s32 minCellX, maxCellX, minCellZ, maxCellZ;
 };
 
 s32 streamed_collision_measure(const Collision *data, const Collision *end,
@@ -54,8 +55,12 @@ s32 streamed_collision_measure(const Collision *data, const Collision *end,
 struct StreamedCollision *streamed_collision_build(void *memory,
     const struct StreamedCollisionInfo *info, const Collision *data, const Collision *end,
     const Vec3f offset);
-void streamed_collision_attach(struct StreamedCollision *collision);
+s32 streamed_collision_attach(struct StreamedCollision *collision);
 void streamed_collision_detach(struct StreamedCollision *collision);
+void streamed_collision_release(struct StreamedCollision *collision);
+void streamed_collision_render_begin(void);
+void streamed_collision_render_end(void);
+struct SurfaceNode *streamed_collision_next_cell(u32 *cursor, s32 cellX, s32 cellZ, s32 partition);
 void streamed_collision_reset(void);
 
 void alloc_surface_pools(void);

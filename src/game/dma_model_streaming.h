@@ -5,8 +5,8 @@
 
 #define DMA_MODEL_COUNT 10
 
-/* Persistent converted surfaces and their spatial-list nodes, separate from
- * both the 100 KB DMA asset pool and the engine's dynamic collision buffer. */
+/* Persistent surfaces, private cells and nodes, separate from the raw asset
+ * pool and the engine's dynamic collision buffer. */
 #define DMA_MODEL_COLLISION_POOL_SIZE 0x40000
 
 struct GraphNode;

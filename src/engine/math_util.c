@@ -850,18 +850,38 @@ void find_surface_on_ray_cell(s32 cellX, s32 cellZ, Vec3f orig, Vec3f normalized
         if ((normalized_dir[1] > -NEAR_ONE) && (flags & RAYCAST_FIND_CEIL)) {
             find_surface_on_ray_list( gStaticSurfacePartition[cellZ][cellX][SPATIAL_PARTITION_CEILS ], orig, normalized_dir, dir_length, hit_surface, hit_pos, max_length);
             find_surface_on_ray_list(gDynamicSurfacePartition[cellZ][cellX][SPATIAL_PARTITION_CEILS ], orig, normalized_dir, dir_length, hit_surface, hit_pos, max_length);
+            u32 streamed = 0;
+            struct SurfaceNode *list;
+            while ((list = streamed_collision_next_cell(&streamed, cellX, cellZ, SPATIAL_PARTITION_CEILS)) != NULL) {
+                find_surface_on_ray_list(list, orig, normalized_dir, dir_length, hit_surface, hit_pos, max_length);
+            }
         }
         if ((normalized_dir[1] <  NEAR_ONE) && (flags & RAYCAST_FIND_FLOOR)) {
             find_surface_on_ray_list( gStaticSurfacePartition[cellZ][cellX][SPATIAL_PARTITION_FLOORS], orig, normalized_dir, dir_length, hit_surface, hit_pos, max_length);
             find_surface_on_ray_list(gDynamicSurfacePartition[cellZ][cellX][SPATIAL_PARTITION_FLOORS], orig, normalized_dir, dir_length, hit_surface, hit_pos, max_length);
+            u32 streamed = 0;
+            struct SurfaceNode *list;
+            while ((list = streamed_collision_next_cell(&streamed, cellX, cellZ, SPATIAL_PARTITION_FLOORS)) != NULL) {
+                find_surface_on_ray_list(list, orig, normalized_dir, dir_length, hit_surface, hit_pos, max_length);
+            }
         }
         if (flags & RAYCAST_FIND_WALL) {
             find_surface_on_ray_list( gStaticSurfacePartition[cellZ][cellX][SPATIAL_PARTITION_WALLS ], orig, normalized_dir, dir_length, hit_surface, hit_pos, max_length);
             find_surface_on_ray_list(gDynamicSurfacePartition[cellZ][cellX][SPATIAL_PARTITION_WALLS ], orig, normalized_dir, dir_length, hit_surface, hit_pos, max_length);
+            u32 streamed = 0;
+            struct SurfaceNode *list;
+            while ((list = streamed_collision_next_cell(&streamed, cellX, cellZ, SPATIAL_PARTITION_WALLS)) != NULL) {
+                find_surface_on_ray_list(list, orig, normalized_dir, dir_length, hit_surface, hit_pos, max_length);
+            }
         }
         if (flags & RAYCAST_FIND_WATER) {
             find_surface_on_ray_list( gStaticSurfacePartition[cellZ][cellX][SPATIAL_PARTITION_WATER ], orig, normalized_dir, dir_length, hit_surface, hit_pos, max_length);
             find_surface_on_ray_list(gDynamicSurfacePartition[cellZ][cellX][SPATIAL_PARTITION_WATER ], orig, normalized_dir, dir_length, hit_surface, hit_pos, max_length);
+            u32 streamed = 0;
+            struct SurfaceNode *list;
+            while ((list = streamed_collision_next_cell(&streamed, cellX, cellZ, SPATIAL_PARTITION_WATER)) != NULL) {
+                find_surface_on_ray_list(list, orig, normalized_dir, dir_length, hit_surface, hit_pos, max_length);
+            }
         }
     }
 }

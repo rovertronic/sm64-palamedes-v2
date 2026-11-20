@@ -248,6 +248,10 @@ s32 find_wall_collisions(struct WallCollisionData *colData) {
             // Check for surfaces that are a part of level geometry.
             node = gStaticSurfacePartition[cellZ][cellX][SPATIAL_PARTITION_WALLS];
             numCollisions += find_wall_collisions_from_list(node, colData);
+            u32 streamed = 0;
+            while ((node = streamed_collision_next_cell(&streamed, cellX, cellZ, SPATIAL_PARTITION_WALLS)) != NULL) {
+                numCollisions += find_wall_collisions_from_list(node, colData);
+            }
         }
     }
 
@@ -408,6 +412,16 @@ f32 find_ceil(f32 posX, f32 posY, f32 posZ, struct Surface **pceil) {
     surfaceList = gStaticSurfacePartition[cellZ][cellX][SPATIAL_PARTITION_CEILS];
     ceil = find_ceil_from_list(surfaceList, x, y, z, &height);
 
+    u32 streamed = 0;
+    while ((surfaceList = streamed_collision_next_cell(&streamed, cellX, cellZ, SPATIAL_PARTITION_CEILS)) != NULL) {
+        f32 streamedHeight;
+        struct Surface *streamedCeil = find_ceil_from_list(surfaceList, x, y, z, &streamedHeight);
+        if (streamedCeil != NULL && (ceil == NULL || streamedHeight < height)) {
+            ceil = streamedCeil;
+            height = streamedHeight;
+        }
+    }
+
     // Use the lower ceiling.
     if (includeDynamic && height >= dynamicHeight) {
         ceil   = dynamicCeil;
@@ -514,67 +528,53 @@ ALWAYS_INLINE static s32 check_within_bounds_y_norm(s32 x, s32 z, struct Surface
 /**
  * Iterate through the list of water floors and find the first water floor under a given point.
  */
-struct Surface *find_water_floor_from_list(struct SurfaceNode *surfaceNode, s32 x, s32 y, s32 z, f32 *pheight) {
-    register struct Surface *surf;
-    struct Surface *floor = NULL;
-    struct SurfaceNode *topSurfaceNode = surfaceNode;
-    struct SurfaceNode *bottomSurfaceNode = surfaceNode;
-    f32 height = FLOOR_LOWER_LIMIT;
-    f32 curHeight = FLOOR_LOWER_LIMIT;
-    f32 bottomHeight = FLOOR_LOWER_LIMIT;
-    f32 curBottomHeight = FLOOR_LOWER_LIMIT;
-    f32 buffer = FIND_FLOOR_BUFFER;
-
-    // Iterate through the list of water floors until there are no more water floors.
-    // SURFACE_NEW_WATER_BOTTOM
-    while (bottomSurfaceNode != NULL) {
-        surf = bottomSurfaceNode->surface;
-        bottomSurfaceNode = bottomSurfaceNode->next;
-
-        // skip wall angled water
+/* Water bottoms and tops can belong to different chunks. Resolve bottoms
+ * across all active lists before looking for the highest eligible top. */
+static f32 find_water_bottom_from_list(struct SurfaceNode *node, s32 x, s32 y, s32 z, f32 bottom) {
+    while (node != NULL) {
+        struct Surface *surf = node->surface;
+        f32 normal[4], height;
+        node = node->next;
         if (surf->type != SURFACE_NEW_WATER_BOTTOM) continue;
-
-        f32 normal[4];
         get_surface_normal_oo(normal, surf);
         if (absf(normal[1]) < NORMAL_FLOOR_THRESHOLD) continue;
-
         if (!check_within_bounds_y_norm(x, z, surf, normal[1])) continue;
-
-        curBottomHeight = surface_height_from_normal(x, z, normal);
-
-        if (curBottomHeight < y + buffer) {
-            continue;
-        } else {
-            bottomHeight = curBottomHeight;
+        height = surface_height_from_normal(x, z, normal);
+        if (height >= y + FIND_FLOOR_BUFFER && (bottom == FLOOR_LOWER_LIMIT || height < bottom)) {
+            bottom = height;
         }
     }
+    return bottom;
+}
 
-    // Iterate through the list of water tops until there are no more water tops.
-    // SURFACE_NEW_WATER
-    while (topSurfaceNode != NULL) {
-        surf = topSurfaceNode->surface;
-        topSurfaceNode = topSurfaceNode->next;
-
-        // skip water tops or wall angled water bottoms
+static struct Surface *find_water_top_from_list(struct SurfaceNode *node, s32 x, s32 z,
+                                                f32 bottom, f32 *height) {
+    struct Surface *floor = NULL;
+    while (node != NULL) {
+        struct Surface *surf = node->surface;
+        f32 normal[4], candidate;
+        node = node->next;
         if (surf->type == SURFACE_NEW_WATER_BOTTOM) continue;
-
-        f32 normal[4];
         get_surface_normal_oo(normal, surf);
         if (absf(normal[1]) < NORMAL_FLOOR_THRESHOLD) continue;
-
         if (!check_within_bounds_y_norm(x, z, surf, normal[1])) continue;
-
-        curHeight = surface_height_from_normal(x, z, normal);
-
-        if (bottomHeight != FLOOR_LOWER_LIMIT && curHeight > bottomHeight) continue;
-
-        if (curHeight > height) {
-            height = curHeight;
-            *pheight = curHeight;
+        candidate = surface_height_from_normal(x, z, normal);
+        if (bottom != FLOOR_LOWER_LIMIT && candidate > bottom) continue;
+        if (candidate > *height) {
+            *height = candidate;
             floor = surf;
         }
     }
+    return floor;
+}
 
+struct Surface *find_water_floor_from_list(struct SurfaceNode *list, s32 x, s32 y, s32 z, f32 *height) {
+    f32 bottom = find_water_bottom_from_list(list, x, y, z, FLOOR_LOWER_LIMIT);
+    f32 candidateHeight = FLOOR_LOWER_LIMIT;
+    struct Surface *floor = find_water_top_from_list(list, x, z, bottom, &candidateHeight);
+    if (floor != NULL) {
+        *height = candidateHeight;
+    }
     return floor;
 }
 
@@ -655,6 +655,14 @@ f32 find_floor(f32 xPos, f32 yPos, f32 zPos, struct Surface **pfloor) {
     surfaceList = gStaticSurfacePartition[cellZ][cellX][SPATIAL_PARTITION_FLOORS];
     floor = find_floor_from_list(surfaceList, x, y, z, &height);
 
+    u32 streamed = 0;
+    while ((surfaceList = streamed_collision_next_cell(&streamed, cellX, cellZ, SPATIAL_PARTITION_FLOORS)) != NULL) {
+        struct Surface *streamedFloor = find_floor_from_list(surfaceList, x, y, z, &height);
+        if (streamedFloor != NULL) {
+            floor = streamedFloor;
+        }
+    }
+
     // Use the higher floor.
     if (includeDynamic && height <= dynamicHeight) {
         floor  = dynamicFloor;
@@ -708,15 +716,23 @@ f32 find_water_floor(s32 xPos, s32 yPos, s32 zPos, struct Surface **pfloor) {
     s32 cellX = GET_CELL_COORD(x);
     s32 cellZ = GET_CELL_COORD(z);
 
-    // Check for surfaces that are a part of level geometry.
-    struct SurfaceNode *surfaceList = gStaticSurfacePartition[cellZ][cellX][SPATIAL_PARTITION_WATER];
-    struct Surface     *floor       = find_water_floor_from_list(surfaceList, x, y, z, &height);
-
-    if (floor == NULL) {
-        height = FLOOR_LOWER_LIMIT;
-    } else {
-        *pfloor = floor;
+    struct SurfaceNode *base = gStaticSurfacePartition[cellZ][cellX][SPATIAL_PARTITION_WATER];
+    struct SurfaceNode *list;
+    struct Surface *floor;
+    u32 streamed = 0;
+    f32 bottom = find_water_bottom_from_list(base, x, y, z, FLOOR_LOWER_LIMIT);
+    while ((list = streamed_collision_next_cell(&streamed, cellX, cellZ, SPATIAL_PARTITION_WATER)) != NULL) {
+        bottom = find_water_bottom_from_list(list, x, y, z, bottom);
     }
+    floor = find_water_top_from_list(base, x, z, bottom, &height);
+    streamed = 0;
+    while ((list = streamed_collision_next_cell(&streamed, cellX, cellZ, SPATIAL_PARTITION_WATER)) != NULL) {
+        struct Surface *candidate = find_water_top_from_list(list, x, z, bottom, &height);
+        if (candidate != NULL) {
+            floor = candidate;
+        }
+    }
+    *pfloor = floor;
 #ifdef VANILLA_DEBUG
     // Increment the debug tracker.
     gNumCalls.floor++;
@@ -892,6 +908,19 @@ void debug_surface_list_info(f32 xPos, f32 zPos) {
 
     list = gDynamicSurfacePartition[cellZ][cellX][SPATIAL_PARTITION_CEILS];
     numCeils += surface_list_length(list);
+
+    u32 streamed = 0;
+    while ((list = streamed_collision_next_cell(&streamed, cellX, cellZ, SPATIAL_PARTITION_FLOORS)) != NULL) {
+        numFloors += surface_list_length(list);
+    }
+    streamed = 0;
+    while ((list = streamed_collision_next_cell(&streamed, cellX, cellZ, SPATIAL_PARTITION_WALLS)) != NULL) {
+        numWalls += surface_list_length(list);
+    }
+    streamed = 0;
+    while ((list = streamed_collision_next_cell(&streamed, cellX, cellZ, SPATIAL_PARTITION_CEILS)) != NULL) {
+        numCeils += surface_list_length(list);
+    }
 
     print_debug_top_down_mapinfo("area   %x", cellZ * NUM_CELLS + cellX);
 

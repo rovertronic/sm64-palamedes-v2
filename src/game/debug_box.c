@@ -220,22 +220,30 @@ void iterate_surfaces_visual(s32 x, s32 z, Vtx *verts) {
             case 7: node =  gStaticSurfacePartition[cellZ][cellX][SPATIAL_PARTITION_WATER ]; colorRGB_copy(col, (ColorRGB)COLOR_RGB_YELLOW); break;
         }
 
-        while (node != NULL) {
-            surf = node->surface;
-            node = node->next;
+        u32 streamed = 0;
+        const s32 partitions[] = {
+            SPATIAL_PARTITION_WALLS, SPATIAL_PARTITION_FLOORS,
+            SPATIAL_PARTITION_CEILS, SPATIAL_PARTITION_WATER
+        };
+        do {
+            while (node != NULL) {
+                surf = node->surface;
+                node = node->next;
 
-            if (SURFACE_IS_INSTANT_WARP(surf->type)) {
-                make_vertex(verts, (gVisualSurfaceCount + 0), surf->vertex1[0], surf->vertex1[1], surf->vertex1[2], 0, 0, 0xFF, 0xA0, 0x00, 0x80);
-                make_vertex(verts, (gVisualSurfaceCount + 1), surf->vertex2[0], surf->vertex2[1], surf->vertex2[2], 0, 0, 0xFF, 0xA0, 0x00, 0x80);
-                make_vertex(verts, (gVisualSurfaceCount + 2), surf->vertex3[0], surf->vertex3[1], surf->vertex3[2], 0, 0, 0xFF, 0xA0, 0x00, 0x80);
-            } else {
-                make_vertex(verts, (gVisualSurfaceCount + 0), surf->vertex1[0], surf->vertex1[1], surf->vertex1[2], 0, 0, col[0], col[1], col[2], 0x80);
-                make_vertex(verts, (gVisualSurfaceCount + 1), surf->vertex2[0], surf->vertex2[1], surf->vertex2[2], 0, 0, col[0], col[1], col[2], 0x80);
-                make_vertex(verts, (gVisualSurfaceCount + 2), surf->vertex3[0], surf->vertex3[1], surf->vertex3[2], 0, 0, col[0], col[1], col[2], 0x80);
+                if (SURFACE_IS_INSTANT_WARP(surf->type)) {
+                    make_vertex(verts, (gVisualSurfaceCount + 0), surf->vertex1[0], surf->vertex1[1], surf->vertex1[2], 0, 0, 0xFF, 0xA0, 0x00, 0x80);
+                    make_vertex(verts, (gVisualSurfaceCount + 1), surf->vertex2[0], surf->vertex2[1], surf->vertex2[2], 0, 0, 0xFF, 0xA0, 0x00, 0x80);
+                    make_vertex(verts, (gVisualSurfaceCount + 2), surf->vertex3[0], surf->vertex3[1], surf->vertex3[2], 0, 0, 0xFF, 0xA0, 0x00, 0x80);
+                } else {
+                    make_vertex(verts, (gVisualSurfaceCount + 0), surf->vertex1[0], surf->vertex1[1], surf->vertex1[2], 0, 0, col[0], col[1], col[2], 0x80);
+                    make_vertex(verts, (gVisualSurfaceCount + 1), surf->vertex2[0], surf->vertex2[1], surf->vertex2[2], 0, 0, col[0], col[1], col[2], 0x80);
+                    make_vertex(verts, (gVisualSurfaceCount + 2), surf->vertex3[0], surf->vertex3[1], surf->vertex3[2], 0, 0, col[0], col[1], col[2], 0x80);
+                }
+
+                gVisualSurfaceCount += 3;
             }
-
-            gVisualSurfaceCount += 3;
-        }
+            node = (i & 1) ? streamed_collision_next_cell(&streamed, cellX, cellZ, partitions[i / 2]) : NULL;
+        } while (node != NULL);
     }
 }
 
@@ -328,10 +336,18 @@ s32 iterate_surface_count(s32 x, s32 z) {
             case 7: node =  gStaticSurfacePartition[cellZ][cellX][SPATIAL_PARTITION_WATER ]; break;
         }
 
-        while (node != NULL) {
-            node = node->next;
-            j++;
-        }
+        u32 streamed = 0;
+        const s32 partitions[] = {
+            SPATIAL_PARTITION_WALLS, SPATIAL_PARTITION_FLOORS,
+            SPATIAL_PARTITION_CEILS, SPATIAL_PARTITION_WATER
+        };
+        do {
+            while (node != NULL) {
+                node = node->next;
+                j++;
+            }
+            node = (i & 1) ? streamed_collision_next_cell(&streamed, cellX, cellZ, partitions[i / 2]) : NULL;
+        } while (node != NULL);
     }
     if (p != NULL) {
         numRegions = *p++;
