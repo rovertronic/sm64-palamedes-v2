@@ -37,6 +37,8 @@
 #include "src/data/event_externs.h"
 #include "neo_shadow.h"
 #include "dma_model_streaming.h"
+#include "ui.h"
+#include "data/text_enums.h"
 
 f32 sDebugRamTrack;
 
@@ -1754,6 +1756,32 @@ void mario_warp_volume(void) {
     }
 }
 
+u32 sTitleCardSeenFlags = 0;
+uiid sUiidTitleCard = UI_NONE;
+u8 sTitleCardTimer = 0;
+void mario_title_volume(void) {
+    CubicVolume * playerTitleVolume = cubic_volume_check_one(gMarioState->pos, VOLUME_TYPE_TITLE);
+    if (playerTitleVolume && sUiidTitleCard == UI_NONE && (!(sTitleCardSeenFlags & (1 << playerTitleVolume->param))) ) {
+        sUiidTitleCard = ui_create_btn(gUiidScreen, playerTitleVolume->param + TEXT_TITLE_1);
+        ui_set_trans_xy(sUiidTitleCard, 160,20);
+        ui_set_object_color(sUiidTitleCard, 0,0,0, 200);
+        ((uiButtonData *) ui_object_ptr(sUiidTitleCard)->data)->printOrigin = PRINT_ORIGIN_CENTER;
+        
+        ui_set_transition_fade(sUiidTitleCard);
+
+        sTitleCardSeenFlags |= (1 << playerTitleVolume->param);
+        sTitleCardTimer = 200;
+    }
+
+    if (sTitleCardTimer > 0) {
+        sTitleCardTimer--;
+        if (sTitleCardTimer == 0) {
+            ui_trans_begin_remove(sUiidTitleCard);
+            sUiidTitleCard = UI_NONE;
+        }
+    }
+}
+
 /**
  * Main function for executing Mario's behavior. Returns particleFlags.
  */
@@ -1773,6 +1801,7 @@ s32 execute_mario_action(UNUSED struct Object *obj) {
     set_mario_lookat();
     set_mario_interest();
     mario_warp_volume();
+    mario_title_volume();
 
     // Updates once per frame:
     vec3f_get_dist_and_angle(gMarioState->prevPos, gMarioState->pos, &gMarioState->moveSpeed, &gMarioState->movePitch, &gMarioState->moveYaw);

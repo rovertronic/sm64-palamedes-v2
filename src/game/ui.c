@@ -466,7 +466,15 @@ void ui_set_transition_slide(uiid myId, Vec3f start, Vec3f end) {
     vec3f_copy(self->posLerp,start);
     vec3f_copy(self->slideStart,start);
     vec3f_copy(self->slideEnd,end);
+}
 
+void ui_set_transition_fade(s8 myId) {
+    uiObject * self = &sUiObjectList[myId];
+    self->alpha = 0.0;
+    self->transition = 0.0f;
+
+    self->transitionFunction[0] = ui_trans_transition_fade_in;
+    self->transitionFunction[1] = ui_trans_transition_fade_out;
 }
 
 // TRANSFORM TRANSITIONS
@@ -643,7 +651,7 @@ void ui_process_ui_object(uiObject * self) {
             }
 
             gDPSetEnvColor(gDisplayListHead++, r, g, b, 200 * (a/255.0f));
-            init_slice_render(&gDefaultSliceParams);
+            init_slice_render(&gRibbonSliceParams);
             render_slice((-x/2)-10+xoffset,18,(x/2)+10+xoffset,-2);
             gDPSetEnvColor(gDisplayListHead++, r, g, b, a);
 

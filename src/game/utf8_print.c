@@ -77,6 +77,14 @@ nineSliceParams gDefaultSliceParams = {
     .sliceType = SLICE_TYPE_4,
 };
 
+nineSliceParams gRibbonSliceParams = {
+    .cornerScale = 0.5f,
+    .texture = nine_slice_ribbon_rgba16,
+    .centerTexture = NULL,
+    .xDivide1 = 16,
+    .sliceType = SLICE_TYPE_4,
+};
+
 void utf8_initialize_table(void) {
     for (int j = 0; j < 2; j++){
         sPrintFont = &sFontInfoArray[j];
@@ -587,7 +595,7 @@ void init_slice_render(nineSliceParams * params) {
 
 	gSPTexture(gDisplayListHead++,65535, 65535, 0, 0, 1);
     gDPPipeSync(gDisplayListHead++);
-    gDPLoadTextureBlock(gDisplayListHead++, params->texture, G_IM_FMT_RGBA, G_IM_SIZ_16b, 32, 32, 0,
+    gDPLoadTextureBlock(gDisplayListHead++, params->texture, G_IM_FMT_RGBA, G_IM_SIZ_32b, 32, 32, 0,
         G_TX_WRAP, G_TX_WRAP, 5, 5, G_TX_NOLOD, G_TX_NOLOD);
 
     gDPPipeSync(gDisplayListHead++);

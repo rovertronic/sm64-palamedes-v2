@@ -28,6 +28,9 @@ char * sEnglishText[TEXT_COUNT] = {
 
     // Star Groups (For organization in Star Display)
     [TEXT_STAR_GROUP_0] = "Course 1",
+
+    // Titles (For walking into new areas)
+    [TEXT_TITLE_1] = "Test Title",
 };
 
 char * sGermanText[TEXT_COUNT] = {

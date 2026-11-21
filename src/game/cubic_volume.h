@@ -21,6 +21,7 @@ enum {
     VOLUME_TYPE_MUSIC,
     VOLUME_TYPE_BRIDGE,
     VOLUME_TYPE_DMA_MODEL,
+    VOLUME_TYPE_TITLE,
 };
 
 CubicVolume * cubic_volume_add(void);

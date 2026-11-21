@@ -3661,7 +3661,11 @@ Texture nine_slice_notepad_rip_rgba16[] = {
 };
 
 Texture nine_slice_default_rgba16[] = {
-    #include "textures/segment2/nine_slice_default.rgba16.inc.c"
+    #include "textures/segment2/nine_slice_default.rgba32.inc.c"
+};
+
+Texture nine_slice_ribbon_rgba16[] = {
+    #include "textures/segment2/nine_slice_ribbon.rgba32.inc.c"
 };
 
 Texture pin_rgba16[] = {

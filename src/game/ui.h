@@ -29,6 +29,7 @@ void ui_set_object_color(s8 myId, u8 r, u8 g, u8 b, u8 a);
 
 void ui_set_transition_instant(s8 myId);
 void ui_set_transition_slide(uiid myId, Vec3f start, Vec3f end);
+void ui_set_transition_fade(s8 myId);
 
 void ui_trans_begin_remove(s8 myId);
 

@@ -28,6 +28,9 @@ enum {
 
     TEXT_STAR_GROUP_0,
 
+    // Titles
+    TEXT_TITLE_1,
+
     TEXT_COUNT,
 };
 
